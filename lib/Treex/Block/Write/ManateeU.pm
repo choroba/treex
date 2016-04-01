@@ -19,6 +19,7 @@ has 'is_member_within_afun'            => ( is       => 'rw', isa => 'Bool', def
 has 'is_shared_modifier_within_afun'   => ( is       => 'rw', isa => 'Bool', default => 0 );
 has 'is_coord_conjunction_within_afun' => ( is       => 'rw', isa => 'Bool', default => 0 );
 has 'randomly_select_sentences_ratio'  => ( is       => 'rw', isa => 'Num',  default => 1 );
+has 'hamledt' => ( is  => 'ro', isa => 'Bool', default => 0 );
 
 has '+extension' => ( default => '.vert' );
 
@@ -45,9 +46,13 @@ sub process_atree {
         my $p_pos = $anode->get_parent->tag;#TODO set tag for parent of root to 'root'
         my $p_ufeatures = join('|', $anode->get_parent->iset()->get_ufeatures());
         my $p_afun = $anode->get_parent->deprel();
+        
+        my $prague_tag = $anode->tag();
 
         # Make sure that values are not empty and that they do not contain spaces.
         my @values = ($anode->form, $lemma, $pos, $ufeatures, $deprel, $p_form, $p_lemma, $p_pos, $p_ufeatures, $p_afun,$distance);
+        my @values_hamledt = ($anode->form, $lemma, $pos, $prague_tag, $ufeatures, $deprel, $p_form, $p_lemma, $p_pos, $p_ufeatures, $p_afun,$distance);
+
         @values = map
         {
             my $x = $_ // '_';
@@ -58,7 +63,14 @@ sub process_atree {
             $x
         }
         (@values);
-        print { $self->_file_handle } join( "\t", @values ) . "\n";
+
+                
+        if ($self->hamledt){
+                print { $self->_file_handle } join( "\t", @values_hamledt ) . "\n";
+        }
+        else {
+                print { $self->_file_handle } join( "\t", @values ) . "\n";
+        }
     }
     return;
 }

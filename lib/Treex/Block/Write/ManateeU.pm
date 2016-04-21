@@ -19,8 +19,10 @@ has 'is_member_within_afun'            => ( is       => 'rw', isa => 'Bool', def
 has 'is_shared_modifier_within_afun'   => ( is       => 'rw', isa => 'Bool', default => 0 );
 has 'is_coord_conjunction_within_afun' => ( is       => 'rw', isa => 'Bool', default => 0 );
 has 'randomly_select_sentences_ratio'  => ( is       => 'rw', isa => 'Num',  default => 1 );
-has 'hamledt' => ( is  => 'ro', isa => 'Bool', default => 0 );
-
+has 'hamledt' => ( is  => 'ro', isa => 'Bool', default => 0,
+    documentation => 'The default conversion is done for the Universal Dependencies, when
+    setting hamledt=1, the vertical will contain PDT-style tags and afuns (however, in kontext we will 
+    name them as deprels to be consistent with UD)' );
 has '+extension' => ( default => '.vert' );
 
 sub process_atree {
@@ -46,12 +48,17 @@ sub process_atree {
         my $p_pos = $anode->get_parent->tag;#TODO set tag for parent of root to 'root'
         my $p_ufeatures = join('|', $anode->get_parent->iset()->get_ufeatures());
         my $p_afun = $anode->get_parent->deprel();
-        
+        #values for HamleDT 3.0
+        my $hamledt_deprel = $anode->afun;
         my $prague_tag = $anode->tag();
-
+        my $p_prague_tag = $anode->get_parent->tag();
+        my $p_hamledt_deprel = $anode->get_parent->afun();
+  
         # Make sure that values are not empty and that they do not contain spaces.
         my @values = ($anode->form, $lemma, $pos, $ufeatures, $deprel, $p_form, $p_lemma, $p_pos, $p_ufeatures, $p_afun,$distance);
-        my @values_hamledt = ($anode->form, $lemma, $pos, $prague_tag, $ufeatures, $deprel, $p_form, $p_lemma, $p_pos, $p_ufeatures, $p_afun,$distance);
+        my @values_hamledt = ($anode->form, $lemma, $prague_tag, $hamledt_deprel, $p_form, $p_lemma, $p_prague_tag, $p_hamledt_deprel,$distance);
+        for (@values_hamledt) { $_ = '_' if $_ eq ''; }#for hamledt, the null values were empty values, transform to '_' (like UCNK)
+
 
         @values = map
         {
@@ -143,9 +150,11 @@ sub _get_nearest {
 #};
 
 override 'process_bundle' => sub {
-	my ($self, $bundle) = @_;	
-	my $position = $bundle->get_position()+1;
-    print { $self->_file_handle } "<s id=\"" . $position . "\">\n";
+    my ($self, $bundle) = @_;	
+    my $position = sprintf("%03d", $bundle->get_position()+1 );
+    my $document_name = $bundle->get_document->file_stem;
+   
+    print { $self->_file_handle } "<s id=\"" . $document_name . $position . "\">\n";
     $self->SUPER::process_bundle($bundle);    
     print { $self->_file_handle } "</s>\n";
 };

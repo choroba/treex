@@ -23,6 +23,7 @@ has 'hamledt' => ( is  => 'ro', isa => 'Bool', default => 0,
     documentation => 'The default conversion is done for the Universal Dependencies, when
     setting hamledt=1, the vertical will contain PDT-style tags and afuns (however, in kontext we will 
     name them as deprels to be consistent with UD)' );
+
 has '+extension' => ( default => '.vert' );
 
 sub process_atree {
@@ -48,14 +49,25 @@ sub process_atree {
         my $p_pos = $anode->get_parent->tag;#TODO set tag for parent of root to 'root'
         my $p_ufeatures = join('|', $anode->get_parent->iset()->get_ufeatures());
         my $p_afun = $anode->get_parent->deprel();
-        #values for HamleDT 3.0
+        
+	#new attributes for HamleDT 3.0
         my $hamledt_deprel = $anode->afun;
         my $prague_tag = $anode->tag();
         my $p_prague_tag = $anode->get_parent->tag();
         my $p_hamledt_deprel = $anode->get_parent->afun();
-  
+	my @child_ord;
+	foreach my $child ( $anode->get_children() ) {
+		my $child_ord=$child->ord;
+		push (@child_ord, $child_ord);
+
+	}
+        my $children_ord = join('|', @child_ord); 
+
+	#my $pchildren = join('|', @pchildren_lemma);
+
         # Make sure that values are not empty and that they do not contain spaces.
-        my @values = ($anode->form, $lemma, $pos, $ufeatures, $deprel, $p_form, $p_lemma, $p_pos, $p_ufeatures, $p_afun,$distance);
+        my @values = ($anode->form, $lemma, $pos, $ufeatures, $deprel, $ord, $p_form, $p_lemma, $p_pos, $p_ufeatures, $p_afun, $p_ord, $distance, $children_ord);
+
         my @values_hamledt = ($anode->form, $lemma, $prague_tag, $hamledt_deprel, $p_form, $p_lemma, $p_prague_tag, $p_hamledt_deprel,$distance);
         for (@values_hamledt) { $_ = '_' if $_ eq ''; }#for hamledt, the null values were empty values, transform to '_' (like UCNK)
 
@@ -96,6 +108,22 @@ sub calc_distance{
      }
         return $dist;
 }
+
+sub calc_child_distance{
+    my ($self, $child) = @_;
+    my $dist;
+     if ( $child->ord == "0" ){
+        $dist = '0';
+     } else{
+        $dist = $child->ord - $child->ord;
+        if ($dist > 0){
+                $dist= '+'.$dist;
+        }
+     }
+        return $dist;
+}
+
+
 
 #checks if parent stands immediately before/after or 
 sub set_immediate{
@@ -152,9 +180,19 @@ sub _get_nearest {
 override 'process_bundle' => sub {
     my ($self, $bundle) = @_;	
     my $position = sprintf("%03d", $bundle->get_position()+1 );
+#   my $position = $bundle->get_position()+1; 
     my $document_name = $bundle->get_document->file_stem;
-   
-    print { $self->_file_handle } "<s id=\"" . $document_name . $position . "\">\n";
+    my $comment = $bundle->wild->{comment};   
+  #  print { $self->_file_handle } "<s id=\"" . $document_name . "_s" . $position . "\">\n";
+    if ($comment=~/orig_file_sentence/){
+	my ($orig_key, $orig_value) = split (/ /, $comment);
+	chomp $orig_value;	
+        print { $self->_file_handle } "<s id=\"" . $document_name . $position . "\" orig_file_sentence=\"". $orig_value . "\">\n";
+    }
+    else {     
+        print { $self->_file_handle } "<s id=\"" . $document_name . $position . "\">\n";
+    }
+
     $self->SUPER::process_bundle($bundle);    
     print { $self->_file_handle } "</s>\n";
 };

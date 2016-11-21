@@ -121,8 +121,8 @@ sub print_clause_structure {
     $self->print_verbose("****************");
     $self->print_verbose("");
 
-    $self->print_verbose("Id | Type     | Deep | Head | Nodes");
-    $self->print_verbose("---+----------+------+------+---------------------------------------------------------------------");
+    $self->print_verbose("Id | Type      | Deep | Head | Nodes");
+    $self->print_verbose("---+-----------+------+------+---------------------------------------------------------------------");
     for (my $i = 0; $i < scalar(@{$ra_clause_structure}); $i++) {
         my $has_head = 0;
         if (defined($$ra_clause_structure[$i]->{head})) {
@@ -140,7 +140,7 @@ sub print_clause_structure {
             }
         }
 
-        $self->print_verbose(sprintf("%2d | %8s | %4s | %4s | %s", $i, $$ra_clause_structure[$i]->{type}, $$ra_clause_structure[$i]->{deep}, $has_head, join(" ", @colored_forms)));
+        $self->print_verbose(sprintf("%2d | %9s | %4s | %4s | %s", $i, $$ra_clause_structure[$i]->{type}, $$ra_clause_structure[$i]->{deep}, $has_head, join(" ", @colored_forms)));
     }
 
     $self->print_verbose("");
@@ -271,6 +271,44 @@ sub get_next_subtask {
         return {type => 'coord', blocks => $sorted_candidates[0]}
     }
 
+    # Find subordinated sequence "0<, ktery>1", 1 == deepest block.
+    @candidates = ();
+    for (my $i = 0; $i < scalar(@$c_structure); $i++) {
+        log_info("KTERY $i");
+
+        # Skip boundaries.
+        if ($$c_structure[$i]->{type} eq 'boundary') {
+            log_info("KTERY $i : Skipping boundary");
+            next;
+        }
+
+        # Skip block if it is not on the deepest layer.
+        if ($$c_structure[$i]->{deep} != $deepest_block) {
+            log_info("KTERY $i : Skipping non-deepest block");
+            next;
+        }
+
+        # At least 2 block must be BEFORE this one.
+        if ($i < 2) {
+            log_info("KTERY $i : Block too early");
+            next;
+        }
+
+        # Check boundery (, ktery)
+        log_info("KTERY $i : lexicalized boundary = " . join('_', map {$_->lemma} @{$$c_structure[$i - 1]->{nodes}}));
+        next if ($$c_structure[$i - 1]->{type} ne 'boundary');
+        next if (join('_', map {$_->lemma} @{$$c_structure[$i - 1]->{nodes}}) ne ',_který');
+        log_info("KTERY $i : Boundary OK");
+
+        # Block that subordinates the deepest clause must not be boundary.
+        # And it must be on the deepest - 1 layer.
+        next if ($$c_structure[$i - 2]->{type} eq 'boundary');
+        next if ($$c_structure[$i - 2]->{deep} != $$c_structure[$i]->{deep} - 1);
+        log_info("KTERY $i : Subordinator OK");
+
+        return {type => 'subord_ktery', blocks => [$i - 2, $i - 1, $i]}
+    }
+
     # Find maximal subordinated sequence.
     @candidates = ();
     for (my $i = 0; $i < scalar(@$c_structure); $i++) {
@@ -338,7 +376,8 @@ sub build_final_tree {
         # Obtain data from trees recursively.
         if ($block->{type} eq "tree") {
             for (my $i = 0; $i < scalar(@{$block->{nodes}}); $i++) {
-                $data{${$block->{nodes}}[$i]->id}{parent} = $block->{local2global}{${$block->{parents}}[$i]};
+                # $data{${$block->{nodes}}[$i]->id}{parent} = $block->{local2global}{${$block->{parents}}[$i]};
+                $data{${$block->{nodes}}[$i]->id}{parent} = ${$block->{parents}}[$i];
                 $data{${$block->{nodes}}[$i]->id}{afun} = ${$block->{afuns}}[$i];
             }
 
@@ -462,6 +501,32 @@ sub merge_clause_structure {
     return [$merge];
 }
 
+# For "0, ktery 1" we want to find the parent token for ktery in 0.
+sub find_parent {
+    my ($self, $block_0, $ktery) = @_;
+    my @nodes = @{$block_0->{nodes}};
+    my @afuns = @{$block_0->{afuns}};
+
+    log_info('Find parent : ' . join(" ", map {$_->afun} @nodes));
+    log_info('Find parent : ' . join(" ", map {$_->tag} @nodes));
+    log_info('Ktery       : ' . $ktery->tag);
+
+    for (my $i = scalar(@nodes) - 1; $i >= 0; $i--) {
+        if ($afuns[$i] eq 'Obj') {
+            return $nodes[$i];
+        }
+    }
+
+    for (my $i = scalar(@nodes) - 1; $i >= 0; $i--) {
+        if (substr($nodes[$i]->tag, 0, 2) eq 'NN' or
+            substr($nodes[$i]->tag, 0, 1) eq 'C') {
+            return $nodes[$i];
+        }
+    }
+
+    return undef;
+}
+
 sub ccp_parsing {
     my ($self, $a_root) = @_;
 
@@ -479,17 +544,10 @@ sub ccp_parsing {
     $self->print_verbose($cg);
     $self->print_verbose("");
 
-    # For simple sentences (clause chart = '0') use chunk
-    # parser method...
-    # if ($cg =~ /^(0|0B1)B?$/) {
-    #     $self->chunk_parsing($a_root);
-    #     return $self->get_parsing_data($a_root);
-    # }
-
     # Process the structure while there are more than 2 blocks.
     my $changed_c_structure = 1;
     while ($changed_c_structure) {
-        # To prevert empty cycles, use $changed_c_structure to inform that C-structure was changed.
+        # To prevent empty cycles, use $changed_c_structure to inform that C-structure was changed.
         $changed_c_structure = 0;
 
         # Debug.
@@ -503,15 +561,53 @@ sub ccp_parsing {
             $self->print_clause_structure($c_structure);
         }
 
+        $self->print_verbose("**************");
+        $self->print_verbose("MERGE SUBTREES");
+        $self->print_verbose("**************");
+        $self->print_verbose("");
+        for (my $i = 0; $i < scalar(@{$c_structure}); $i++) {
+            if ($$c_structure[$i]->{type} ne 'subtree') {
+                $self->print_verbose(sprintf("Processing c-structure block %2d : skip non-subtree block", $i));
+                next;
+            }
+
+            $self->print_verbose("Processing c-structure block $i : merging to block " . $$c_structure[$i]->{main_block});
+
+            my $final_block = $$c_structure[$$c_structure[$i]->{main_block}];
+            my $merge_block = $$c_structure[$i];
+
+            my $embedded_node = $$c_structure[$i]->{embedded_node};
+            my $number_of_subtree_nodes = scalar($$c_structure[$i]->{nodes}) - 1;
+
+            # Update nodes.
+            shift(@{$merge_block->{nodes}});
+            push(@{$final_block->{nodes}}, @{$merge_block->{nodes}});
+
+            # Update parents.
+            shift(@{$merge_block->{parents}});
+            push(@{$final_block->{parents}}, @{$merge_block->{parents}});
+
+            # Update afuns.
+            shift(@{$merge_block->{afuns}});
+            push(@{$final_block->{afuns}}, @{$merge_block->{afuns}});
+
+            splice(@$c_structure, $i, 1);
+        }
+
         # Parse each clause independently. Identify the head of each clause.
         $self->print_verbose("***************");
         $self->print_verbose("PARSING CLAUSES");
         $self->print_verbose("***************");
         $self->print_verbose("");
         for (my $i = 0; $i < scalar(@{$c_structure}); $i++) {
-            if ($$c_structure[$i]->{type} ne "clause") {
+            if ($$c_structure[$i]->{type} !~ /(sub)?clause/) {
                 $self->print_verbose(sprintf("Processing c-structure block %2d : skip non-clause block", $i));
                 next;
+            }
+
+            my $is_subclass = 0;
+            if ($$c_structure[$i]->{type} eq 'subclause') {
+                $is_subclass = 1;
             }
 
             # Obtain list of tokens and tags.
@@ -535,11 +631,10 @@ sub ccp_parsing {
             my $head_nodes = $self->get_clause_head($$c_structure[$i]->{nodes}, $parents_rf, $afuns_rf);
 
             # Save data into C-structure.
-            $$c_structure[$i]->{type} = "tree";
+            $$c_structure[$i]->{type} = $is_subclass ? "subtree" : "tree";
             $$c_structure[$i]->{head} = $head_nodes;
-            $$c_structure[$i]->{parents} = $parents_rf;
+            $$c_structure[$i]->{parents} = [map {$local2global->{$_}} @$parents_rf];
             $$c_structure[$i]->{afuns} = $afuns_rf;
-            $$c_structure[$i]->{local2global} = $local2global;
 
             # Propagate that C-structure was changed.
             $changed_c_structure = 1;
@@ -548,7 +643,6 @@ sub ccp_parsing {
         # Debug current state of the clause structure.
         $self->print_clause_structure($c_structure);
 
-        # FIXME
         $self->print_verbose("*******");
         $self->print_verbose("SUBTASK");
         $self->print_verbose("*******");
@@ -559,7 +653,7 @@ sub ccp_parsing {
             $self->print_verbose("Merge type : $what_to_merge->{type}");
             $self->print_verbose("C-blocks   : @{$what_to_merge->{blocks}}");
 
-            my $block = undef;
+            my @new_blocks = ();
 
             if ($what_to_merge->{type} eq 'coord') {
                 my @blocks = @{$what_to_merge->{blocks}};
@@ -576,12 +670,41 @@ sub ccp_parsing {
                     push(@children, $$c_structure[$block_id])
                 }
 
-                $block = {
+                my $block = {
                     'type' => 'clause',
                     'deep' => $$c_structure[$blocks[0]]->{deep},
                     'nodes' => \@nodes,
                     'children' => \@children
                 };
+                push(@new_blocks, $block);
+            }
+
+            if ($what_to_merge->{type} eq 'subord_ktery') {
+                my @blocks = @{$what_to_merge->{blocks}};
+                my $main_block_id = $blocks[0];
+                my $boundary_block_id = $blocks[1];
+                my $subord_block_id = $blocks[2];
+
+                # Find parent in 0.
+                my $parent_node = $self->find_parent($$c_structure[$main_block_id], ${$$c_structure[$boundary_block_id]->{nodes}}[1]);
+                log_info("SUBORD_KTERY : Parent = " . $parent_node->form);
+
+                # Collect nodes => parent_node + boundary nodes + subordinated clause nodes
+                my @nodes = ($parent_node);
+                push(@nodes, @{$$c_structure[$boundary_block_id]->{nodes}});
+                push(@nodes, @{$$c_structure[$subord_block_id]->{nodes}});
+
+                my $block = {
+                    'type' => 'subclause',
+                    'embedded_node' => $parent_node,
+                    'main_block' => $main_block_id,
+                    'deep' => $$c_structure[$subord_block_id]->{deep},
+                    'nodes' => \@nodes,
+                    'children' => []
+                };
+
+                push(@new_blocks, $$c_structure[$main_block_id]);
+                push(@new_blocks, $block);
             }
 
             if ($what_to_merge->{type} eq 'subord') {
@@ -599,12 +722,14 @@ sub ccp_parsing {
                     push(@children, $$c_structure[$block_id])
                 }
 
-                $block = {
+                my $block = {
                     'type' => 'clause',
                     'deep' => $$c_structure[$blocks[0]]->{deep},
                     'nodes' => \@nodes,
                     'children' => \@children
                 };
+
+                push(@new_blocks, $block);
             }
 
             # Store info about merging into node with ord 1.
@@ -613,7 +738,7 @@ sub ccp_parsing {
             $a_nodes[0]->serialize_wild();
 
             # Slice three merged blocks from c_structure and add the new one.
-            splice(@$c_structure, ${$what_to_merge->{blocks}}[0], scalar(@{$what_to_merge->{blocks}}), $block)
+            splice(@$c_structure, ${$what_to_merge->{blocks}}[0], scalar(@{$what_to_merge->{blocks}}), @new_blocks);
         }
         else {
             $self->print_verbose("No subtask.");

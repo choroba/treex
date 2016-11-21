@@ -17,6 +17,12 @@ has 'parsing_mode' => (
     default  => 'ccp'
 );
 
+has 'clause_charts' => (
+    is       => 'ro',
+    isa      => 'Str',
+    default  => ''
+);
+
 # Verbose printing conditioned by $self->verbose.
 # Printing uses treex logging system, namely log_info() method.
 sub print_verbose {
@@ -370,6 +376,21 @@ sub build_final_tree {
     return %data;
 }
 
+# Direct calling of the MST Parser.
+sub parse {
+    my ($self, $ra_words, $ra_tags) = @_;
+
+    my @words = @$ra_words;
+    my @tags = @$ra_tags;
+
+    foreach my $i (0 .. $#tags) {
+        my @positions = split //, $tags[$i];
+        $tags[$i] = $positions[4] eq '-' ? "$positions[0]$positions[1]" : "$positions[0]$positions[4]";
+    }
+
+    return $self->_parser->parse_sentence(\@words, undef, \@tags);
+}
+
 # For debug, parse whole sentence in a standard way.
 # Return the same data structure as build_final_tree().
 sub full_scale_parsing {
@@ -379,7 +400,7 @@ sub full_scale_parsing {
     my @words = map { $_->form } @a_nodes;
     my @tags = map { $_->tag } @a_nodes;
 
-    my ($parents_rf, $afuns_rf) = $self->_parser->parse_sentence(\@words, undef, \@tags);
+    my ($parents_rf, $afuns_rf) = $self->parse(\@words, \@tags);
 
     my %data = ();
     foreach my $i ( 0 .. $#a_nodes) {
@@ -460,10 +481,10 @@ sub ccp_parsing {
 
     # For simple sentences (clause chart = '0') use chunk
     # parser method...
-    if ($cg =~ /^(0|0B1)B?$/) {
-        $self->chunk_parsing($a_root);
-        return $self->get_parsing_data($a_root);
-    }
+    # if ($cg =~ /^(0|0B1)B?$/) {
+    #     $self->chunk_parsing($a_root);
+    #     return $self->get_parsing_data($a_root);
+    # }
 
     # Process the structure while there are more than 2 blocks.
     my $changed_c_structure = 1;
@@ -508,7 +529,7 @@ sub ccp_parsing {
             $self->print_verbose(sprintf("Processing c-structure block %2d : (%s)", $i, join(" ", @words)));
 
             # Call parser.
-            my ($parents_rf, $afuns_rf) = $self->_parser->parse_sentence(\@words, undef, \@tags);
+            my ($parents_rf, $afuns_rf) = $self->parse(\@words, \@tags);
 
             # Obtain head of the clause.
             my $head_nodes = $self->get_clause_head($$c_structure[$i]->{nodes}, $parents_rf, $afuns_rf);
@@ -649,6 +670,19 @@ sub process_atree {
     $self->print_verbose("\e[1;33m" . join(" ", map {$_->form} $a_root->get_descendants({ordered => 1})) . "\e[m");
     $self->print_verbose("");
 
+    # When only specific clause charts are asked to be parsed, skip other sentences.
+    if ($self->clause_charts ne '') {
+        my @requested_cc = split(/,/, $self->clause_charts);
+        my $cc = $self->get_clause_chart($a_root);
+        if (not grep(/^$cc$/, @requested_cc)) {
+            $self->print_verbose("Skipping sentence with the clause chart $cc as this is not in {@requested_cc}");
+            return;
+        }
+    }
+
+    # Obtain the gold-standard.
+    my %gold = $self->get_parsing_data($a_root);
+
     # The whole CCP meta-algorithm provide just when parsing mode is set to 'ccp'.
     my %ccp = ();
     if ($self->parsing_mode eq 'ccp') {
@@ -656,26 +690,31 @@ sub process_atree {
     }
 
     # Baseline parsing obtain on both modes.
-    my %mst = $self->full_scale_parsing($a_root);
+    my %baseline = $self->full_scale_parsing($a_root);
+
+    # MST Adapted.
+    $self->SUPER::process_atree($a_root);
+    my %mst = $self->get_parsing_data($a_root);
 
     # Accoring to parsing mode, fill final dependences from cpp or mst.
     my %final = ();
     if ($self->parsing_mode eq 'baseline') {
-        %final = %mst;
+        %final = %baseline;
     }
     else {
         %final = %ccp;
     }
 
     # Debug.
-    $self->print_verbose("Id                             | Form             | Afun    | Ord | CPP Parent | MST Parent | Diff");
-    $self->print_verbose("-------------------------------+------------------+---------+-----+------------+------------+-----");
+    $self->print_verbose("");
+    $self->print_verbose("Id                             | Form             | Afun    | Ord | GOL | CPP | BAS | MST");
+    $self->print_verbose("-------------------------------+------------------+---------+-----+-----+-----+-----+----");
     my @a_nodes = $a_root->get_descendants({ordered => 1});
     foreach my $node (@a_nodes) {
         my $node_id = $node->id;
         my $diff = $final{$node_id}{parent} eq $mst{$node_id}{parent} ? "" : "X";
 
-        $self->print_verbose(sprintf("%30s | %16s | %7s | %3d | %10d | %10d | %4s", $node_id, $node->form, $final{$node_id}{afun}, $node->ord, $final{$node_id}{parent}, $mst{$node_id}{parent}, $diff));
+        $self->print_verbose(sprintf("%30s | %16s | %7s | %3d | %3d | %3d | %3d | %3d", $node_id, $node->form, $final{$node_id}{afun}, $node->ord, $gold{$node_id}{parent}, $final{$node_id}{parent}, $baseline{$node_id}{parent}, $mst{$node_id}{parent}));
         #printf("%30s | %16s | %7s | %3d | %10d | %10d | %4s\n", $node_id, $node->form, $final{$node_id}{afun}, $node->ord, $final{$node_id}{parent}, $mst{$node_id}{parent}, $diff);
     }
     $self->print_verbose("");

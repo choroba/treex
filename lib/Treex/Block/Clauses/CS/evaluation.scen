@@ -1,0 +1,21 @@
+#Read::PDT top_layer=a schema_dir=/net/data/pdt30/resources/ from='!/net/data/pdt30/data/amw/dtest/*.a.gz'
+
+A2A::BackupTree to_selector=mstadapt
+A2A::BackupTree to_selector=baseline
+A2A::BackupTree to_selector=ccp
+
+Util::SetGlobal selector=baseline
+Clauses::CS::GoldClauseChart
+Clauses::CS::Parse parsing_mode=baseline
+
+Util::SetGlobal selector=ccp
+Clauses::CS::GoldClauseChart
+Clauses::CS::Parse parsing_mode=ccp verbose=0
+
+Util::SetGlobal selector=mstadapt
+Clauses::CS::GoldClauseChart
+W2A::CS::ParseMSTAdapted
+
+Util::SetGlobal selector=pdt
+Clauses::CS::GoldClauseChart
+Clauses::CS::Eval clause_chart_threshold=0.01

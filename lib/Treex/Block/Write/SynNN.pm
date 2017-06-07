@@ -27,6 +27,12 @@ sub process_atree {
                     # TODO rev DFS-based (asi)
                     push @result, ($node->ord - 1);
                 }
+            } elsif ($self->what eq 'cue') {
+                # TODO output based on Write::Negations
+                push @result, '0';
+            } elsif ($self->what eq 'scope') {
+                # TODO output based on Write::Negations
+                push @result, '0';
             }
         }
         print { $self->_file_handle } join ' ', @result;

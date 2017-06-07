@@ -12,17 +12,22 @@ sub process_atree {
 
     my @descendants = $aroot->get_descendants({ordered => 1});
 
-    if ($self->what eq 'sent') {
+    if ($self->what =~ /^tdInfo|parent|rel/) {
+        # tree-based
+    } else {
+        # token-based
         my @result = ();
         foreach my $node (@descendants) {
-            push @result, $node->form;
-        }
-        print { $self->_file_handle } join ' ', @result;
-        print { $self->_file_handle } "\n";
-    } elsif ($self->what eq 'pos') {
-        my @result = ();
-        foreach my $node (@descendants) {
-            push @result, $node->tag;
+            if ($self->what eq 'sent') {
+                push @result, $node->form;
+            } elsif ($self->what eq 'pos') {
+                push @result, $node->tag;
+            } elsif ($self->what eq 'leaves') {
+                if ($node->is_leaf) {
+                    # TODO rev DFS-based (asi)
+                    push @result, ($node->ord - 1);
+                }
+            }
         }
         print { $self->_file_handle } join ' ', @result;
         print { $self->_file_handle } "\n";

@@ -19,7 +19,15 @@ sub process_atree {
         }
         print { $self->_file_handle } join ' ', @result;
         print { $self->_file_handle } "\n";
+    } elsif ($self->what eq 'pos') {
+        my @result = ();
+        foreach my $node (@descendants) {
+            push @result, $node->tag;
+        }
+        print { $self->_file_handle } join ' ', @result;
+        print { $self->_file_handle } "\n";
     }
+    
     return;
 }
 

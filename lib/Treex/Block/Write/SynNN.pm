@@ -21,7 +21,9 @@ sub process_atree {
                 my @info = ();
                 push @info, ($node->ord - 1);
                 push @info, ($node->parent->ord - 1);
-                push @info, $node->afun;
+                # push @info, $node->afun;
+                # push @info, 'dep';
+                push @info, $node->deprel;
                 push @result, (join '$', @info);
             } else {
                 # parent-child type info
@@ -31,7 +33,9 @@ sub process_atree {
                     if ($self->what eq 'parent') {
                         @line = map { $_->ord - 1 } @line;
                     } elsif ($self->what eq 'rel') {
-                        @line = map { $_->afun } @line;
+                        # @line = map { $_->afun } @line;
+                        # @line = map { 'dep' } @line;
+                        @line = map { $_->deprel } @line;
                     } else {
                         log_fatal "Unknown value of what: " . $self->what;
                     }

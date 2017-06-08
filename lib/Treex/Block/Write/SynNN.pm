@@ -29,7 +29,7 @@ sub process_atree {
                     my @line = $node->get_children({ordered => 1});
                     unshift @line, $node;
                     if ($self->what eq 'parent') {
-                        @line = map { $_->ord } @line;
+                        @line = map { $_->ord - 1 } @line;
                     } elsif ($self->what eq 'rel') {
                         @line = map { $_->afun } @line;
                     } else {

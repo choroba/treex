@@ -155,7 +155,7 @@ __END__
 =encoding utf8
 =head1 NAME
 
-Treex::Block::Write::Manatee
+Treex::Block::Write::ManateeU
 
 =head1 DESCRIPTION
 

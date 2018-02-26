@@ -28,8 +28,8 @@ has '+extension' => ( default => '.vert' );
 #(the last three attributes determine the distance of a node from its parent)
 #For tectogrammatical, there are more attributes - see @values
 
-
 sub process_atree {
+
     my ( $self, $atree ) = @_;
 
     # if only random sentences are printed
@@ -41,7 +41,7 @@ sub process_atree {
             (qw(lemma pos deprel));        
     		# convert lemma to the basic form
 		my $truncated_lemma = Treex::Tool::Lexicon::CS::truncate_lemma( $lemma, 1 );
-       my $tnode;
+	   #my $tnode;
        my $a_type; # HOW TO NAME IT MEANINGFULLY???  
        if ( $anode->get_referencing_nodes("a/lex.rf") ){
 
@@ -260,12 +260,6 @@ sub set_position{
         return "right";
     }
 }
-
-
-#override 'print_header' => sub {
-#        my ($self, $document) = @_;
-#    print { $self->_file_handle } "<doc>\n";
-#};
 
 override 'process_bundle' => sub {
 	my ($self, $bundle) = @_;	

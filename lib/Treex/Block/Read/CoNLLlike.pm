@@ -13,32 +13,10 @@ has 'use_p_attribs' => ( is => 'ro', isa => 'Bool', default => 0 );
 has 'attr_names' => ( is => 'rw', isa => 'Str', default => '');
 has 'format'     => ( is => 'ro', isa => 'Str', default => '');
 
-use Devel::PrettyTrace; ## put "bt;" as the first command into any function you want to debug
-#use Data::Printer alias => 'dump', colored => 1, indent => 2, escape_chars => "all", show_tied => 1, class => {internals => "1", inherited => 'none', expand => 'all', show_methods => "none"}, caller_info => 1;
-use Data::Printer alias => 'dump', colored => 1, indent => 2, class => {internals => "1", inherited => 'none', expand => 1, show_methods => "none"}, caller_info => 1;
-                               # similar to Data::Dumper, but with colourful output,
-                               #    and numbering the array elements from 0
-                               # the alias means that we can use the same function Dumper as with Data::Dumper
-                               # without the alias, dumpt to STDERR
-                               # do not use the alias together with Devel::PrettyTrace - it relies on Data::Printer calling the dumping function p()
-#print p(@array, colored => 1); # now print to STDOUT 
-                               #     - if you ask for a return value, it does not dump to STDERR
-                               # with the colored option set already in "use Data::Printer",
-                               #    it is not necessary to set colored to 1 even in "print p(...)"
-
-# Debuging...
-my $debug = 0;
-sub _debug {
-  #if ($debug) { say join "\n", @_; }
-  if ($debug) { dump @_; }
-}
-
-
 our %attributes;
 our $newnode;
 sub also_set {
   my ($attr_name, $attr_value, $attr_to_set, $attr_to_get) = @_;
-  #_debug($attr_name, $attr_value, $attr_to_set, $attr_to_get);
   if ( ($attr_name eq $attr_to_get) and (not(exists($attributes{$attr_to_set}))) ) {
     my $set = "set_$attr_to_set";
     if ($attr_to_set eq "ord") {$set = "_set_ord";}
@@ -89,10 +67,12 @@ sub next_document {
         LINE:
         foreach my $line (@lines) {
             next LINE if $line =~ /^\s*$/;
+            chomp($line); $line =~ s/\R//g;   ## also remove carriage returns;
             if ($line =~ s/^#\s*//)
             {
                 # sent_id metadata sentence-level comment
-                if ($line =~ m/^sent_id(?:\s*=\s*|\s+)(.*)/)
+                ## TODO: some better way to recognize sentence ids when they are not started by sent_id ???
+                if ($line =~ m/^sent_id(?:\s*=\s*|\s+)(.*)/ or $line =~ m/^((cmpr94|lnd?9[45]|mf9).*)/)
                 {
                     my $sid = $1;
                     my $zid = $self->language();
@@ -127,7 +107,6 @@ sub next_document {
                 next LINE;
             }
             # Since UD v2, the FORM and LEMMA columns may contain spaces, thus we can only use the TAB character as column separator.
-            chomp($line); $line =~ s/\R//g;   ## also remove carriage returns;
             my @tokens = split( /\t/, $line );
             my $newnode = $aroot->create_child();
             $newnode->shift_after_subtree($aroot);
@@ -178,7 +157,7 @@ sub next_document {
                 also_set($_,$attr_value,"conll_feat","feats");
                 also_set($_,$attr_value,"conll_deprel","deprel");
             }
-            log_warn "Extra columns: '@tokens'" if $#tokens;
+            log_warn "Extra columns: '@tokens'" if $#tokens>0;
 
             if ($self->use_p_attribs) {
                 $newnode->set_lemma($newnode->{"plemma"});
@@ -201,7 +180,6 @@ sub next_document {
           foreach my $i ( 1 .. $#nodes ) {
             if (exists($nodes[$i]->wild->{"$attrhead"}->{"head"}) && $nodes[$i]->wild->{"$attrhead"}->{"head"} =~ '^[1-9][0-9]*$') {
               $nodes[$i]->wild->{"$attrhead"}->{"parent"} = $nodes[$nodes[$i]->wild->{"$attrhead"}->{"head"}];
-              _debug($nodes[$i]);
             }
           }
         }

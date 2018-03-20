@@ -17,6 +17,7 @@ has 'get_bundle' => ( is       => 'rw', isa => 'Bool', default => 0 );
 has '+extension' => ( default => '.vert' );
 has 'attr_names' => ( is => 'rw', isa => 'Str', default => '');
 has 'format'     => ( is => 'ro', isa => 'Str', default => '');
+has 'unique_ids' => ( is => 'ro', isa => 'Bool', default => 0 );
 
 my %formats = (
   'UD1.3' => 'form lemma pos ufeatures deprel p_form p_lemma p_pos p_ufeatures p_afun parent',
@@ -140,21 +141,22 @@ sub get_attribute {
 
 
 override 'process_bundle' => sub {
-  bt;
   my ($self, $bundle) = @_;  
   my $position = $bundle->id; #$bundle->get_position()+1;
-  my $unique_id = $self->{file_stem} . "_" . $position;
-  print { $self->_file_handle } "<s id=\"" . $unique_id . "\">\n";
+  my $unique_id = ( $self->unique_ids ? "" : $self->{wild}->{file_stem} . "_" ) . $position;
+  print { $self->_file_handle } "<s id=\"" . $unique_id . "\"";
+  print { $self->_file_handle } "comment=\"" . $bundle->wild->{comment} . "\"" if $bundle->wild->{comment};
+  print { $self->_file_handle } ">\n";
   $self->SUPER::process_bundle($bundle);  
   print { $self->_file_handle } "</s>\n";
 };
 
 override 'print_header' => sub {
   my ($self, $document) = @_;
-  $self->{file_stem} = $document->file_stem;
+  $self->{wild}->{file_stem} = $document->{file_stem};
   my $metadata = $document->wild->{genre};
-  $metadata = $metadata ? "genre=\"$metadata\"" : "";
-  print { $self->_file_handle } "<doc id=\"".$document->file_stem."\" $metadata>\n";     
+  $metadata = $metadata ? " genre=\"$metadata\"" : "";
+  print { $self->_file_handle } "<doc id=\"".$document->{file_stem}."\"$metadata>\n";     
 
   ## set up the expected output format
   ## TODO: do this just once for all documents
@@ -223,6 +225,10 @@ C<a_type>
 has values C<lex>, C<aux> and C<null> depending on whether the given a-level node is 
 a lexical/auxiliary reference of a t-layer node or not.
 
+=item unique_ids
+
+Boolean: if false, the document id will be prepended to sentence ids to make them unique across the whole collection.
+Default: false.
 
 =item encoding
 

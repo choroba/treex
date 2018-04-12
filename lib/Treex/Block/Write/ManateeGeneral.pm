@@ -20,6 +20,7 @@ has 'format'     => ( is => 'ro', isa => 'Str', default => '');
 has 'unique_ids' => ( is => 'ro', isa => 'Bool', default => 0 );
 
 my %formats = (
+  'UD2.2' => 'form lemma tag conll_pos conll_feat deprel parent p_form p_lemma p_upos p_xpos p_ufeatures p_deprel deps ord misc',
   'UD1.3' => 'form lemma pos ufeatures deprel p_form p_lemma p_pos p_ufeatures p_afun parent',
   'styx1.0_input' => 'ord form lemma tag afun head school_deprel school_head',
   'styx1.0' => 'form lemma tag ord school_deprel school_parent school_head school_p_form school_p_lemma school_p_tag afun parent p_ord p_form p_lemma p_tag',

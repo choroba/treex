@@ -71,6 +71,23 @@ sub next_document {
                     my $text = $1;
                     $zone->set_sentence($text);
                 }
+                # orig_file_sentence
+                elsif ($line =~ m/^orig_file_sentence\s*=?\s*(.*)/)
+                {
+                    my $origid = $1;
+                    $bundle->{wild}->{origid} = $origid;
+                }
+                # we should treat these more properly, but for now it has to do
+                elsif ($line =~ m/^newdoc id\s*=\s*(.*)/)
+                {
+                    my $newdocid = $1;
+                    $bundle->{wild}->{newdoc} = $newdocid;
+                }
+                elsif ($line =~ m/^newpar id\s*=\s*(.*)/)
+                {
+                    my $newparid = $1;
+                    $bundle->{wild}->{newpar} = $newparid;
+                }
                 # any other sentence-level comment
                 else
                 {

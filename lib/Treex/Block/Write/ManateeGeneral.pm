@@ -20,7 +20,7 @@ has 'format'     => ( is => 'ro', isa => 'Str', default => '');
 has 'unique_ids' => ( is => 'ro', isa => 'Bool', default => 0 );
 
 my %formats = (
-  'UD2.2' => 'form lemma tag conll_pos conll_feat deprel parent p_form p_lemma p_upos p_xpos p_ufeatures p_deprel deps ord misc',
+  'UD2.2' => 'form lemma tag conll_pos ufeatures parent deprel p_form p_lemma p_tag p_conll_pos p_ufeatures p_deprel deps misc ord p_ord',
   'UD1.3' => 'form lemma pos ufeatures deprel p_form p_lemma p_pos p_ufeatures p_afun parent',
   'styx1.0_input' => 'ord form lemma tag afun head school_deprel school_head',
   'styx1.0' => 'form lemma tag ord school_deprel school_parent school_head school_p_form school_p_lemma school_p_tag afun parent p_ord p_form p_lemma p_tag',
@@ -60,9 +60,9 @@ sub calc_distance{
   my ($anode, $anode2ord) = @_;
   my $dist;
   if ( $anode2ord == '0' ){
-    $dist = '0 but true';
+    $dist = '0';
   } else {
-    $dist = $anode2ord - $anode->ord;
+    $dist = $anode2ord - $anode->ord + 0;
     if ($dist > 0){ $dist= '+'.$dist; }
   }
   return $dist;
@@ -96,13 +96,15 @@ sub get_attribute {
   ### now the fun part: extracting attributes of parent and effective parents
   } elsif ( $name =~ m/^e?parent$/ ) {    # parent, eparent -> relative distance (use p_ord for absolute value)
     my $function = "get_$name";
-    $value = calc_distance($anode,$anode->$function->ord())+0;
+    $value = calc_distance($anode,$anode->$function->ord());
   } elsif ( $name =~ m/^p_/ ) {           # attributes of a parent
     (my $attrname = $name) =~ s/^p_//;
     $value = get_attribute($self,$anode->get_parent,$attrname);
   } elsif ( $name =~ m/^ep_/ ) {
     (my $attrname = $name) =~ s/^ep_//;
     $value = get_attribute($self,$anode->get_eparent,$attrname);
+  } elsif ( $name =~ m/^conll_/ ) {
+    $value = $anode->$name;
   } elsif ( $name =~ m/_head$/  ) {     # e.g. school_parent
     $value = $anode->wild->{$name}->{head};
   } elsif ( $name =~ m/_parent$/  ) {     # e.g. school_parent
@@ -114,7 +116,6 @@ sub get_attribute {
 		  }
       } or
       $value = '_';
-      if ($value eq '0 but true') {$value = $value + 0;}  ## convert to number 0
   } elsif ( $name =~ m/_p_/ ) {           # e.g. attributes of a school_parent
     (my $attrprefix = $name) =~ s/_p_.*//;
     (my $attrsufix = $name) =~ s/.*_p_//;
@@ -143,10 +144,14 @@ sub get_attribute {
 
 override 'process_bundle' => sub {
   my ($self, $bundle) = @_;  
+  my $zone = $bundle->get_zone($self->language);
   my $position = $bundle->id; #$bundle->get_position()+1;
-  my $unique_id = ( $self->unique_ids ? "" : $self->{wild}->{file_stem} . "_" ) . $position;
+  my $unique_id = ( $self->unique_ids ? '' : $self->{wild}->{file_stem} . "_" ) . $position;
   print { $self->_file_handle } "<s id=\"" . $unique_id . "\"";
-  print { $self->_file_handle } "comment=\"" . $bundle->wild->{comment} . "\"" if $bundle->wild->{comment};
+  print { $self->_file_handle } " text=\"" . $zone->get_attr('sentence'). "\"" if $zone->get_attr('sentence');
+  print { $self->_file_handle } " orig_file_sentence=\"" . $bundle->wild->{origid} . "\"" if $bundle->wild->{origid};
+  print { $self->_file_handle } " newdoc=\"" . $bundle->wild->{newdoc} . "\"" if $bundle->wild->{newdoc};
+  print { $self->_file_handle } " newpar=\"" . $bundle->wild->{newpar} . "\"" if $bundle->wild->{newpar};
   print { $self->_file_handle } ">\n";
   $self->SUPER::process_bundle($bundle);  
   print { $self->_file_handle } "</s>\n";

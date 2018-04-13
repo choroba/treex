@@ -5,6 +5,7 @@ use warnings;
 use Moose;
 use Treex::Core::Common;
 use Treex::Tool::Lexicon::CS;
+no warnings qw(uninitialized);
 
 extends 'Treex::Block::Write::BaseTextWriter';
 
@@ -35,18 +36,40 @@ sub process_atree {
   # if only random sentences are printed
   return if rand() > $self->randomly_select_sentences_ratio;
 	
-  foreach my $anode ( $atree->get_descendants( { ordered => 1 } ) ) {
+  my @anodes = $atree->get_descendants( { ordered => 1 } );
+  for ( my $ind = 0; $ind < @anodes; $ind++ ) {
     my @values;
     foreach (@attributes) {
-      push @values, $self->get_attribute ($anode, $_);
-	 }
+      push @values, $self->get_attribute ($anodes[$ind], $_); 
+	}
+    until ( !$anodes[$ind]->fused_with_next() ) {
+      $ind++;
+      for (my $attr_ind=0; $attr_ind < @attributes; $attr_ind++) {
+        my $attribute = $attributes[$attr_ind];
+        if ( $attribute eq "ord") {
+          $values[$attr_ind] = join ('-', ($values[$attr_ind], $self->get_attribute($anodes[$ind], $attribute)));
+        } elsif ( $attribute eq "form" ) {
+          ;
+        } else {
+          $values[$attr_ind] = join ('|', ($values[$attr_ind], $self->get_attribute($anodes[$ind], $attribute)));
+        }
+      }
+    }
 
     # Make sure that values are not empty 
     # values may contain whitespace if it is surrounded by non-whitespace
     @values = map {
       my $x = $_ // '_';  ## // is || but testing definedness instead of truth
-      $x =~ s/^\s+//;
-      $x =~ s/\s+$//;
+      $x =~ s/(^|\|)([^|]*)\|(.*\|)?\2(\||$)/$1$2|$3$4/g;
+      while ( $2 ) {
+        $x =~ s/\|+/|/;
+        pos()=$-[2];
+        $x =~ s/(^|\|)([^|]*)\|(.*\|)?\2(\||$)/$1$2|$3$4/g 
+      }
+      ## TODO: maybe some restarting of matching is also needed???
+      $x =~ s/^\s*\|*//;
+      $x =~ s/\s*\|*$//;
+      $x =~ s/\|+/|/;
       $x = '_' if ($x eq '');
       $x
     } (@values);
@@ -71,7 +94,9 @@ sub calc_distance{
 sub get_attribute {
   my ( $self, $anode, $name ) = @_;
   my $value;
-  if ($name eq 'a_type') {
+  if ($name eq 'form') {
+    $value = $anode->fused_form // $anode->form;
+  } elsif ($name eq 'a_type') {
     if ( $anode->get_referencing_nodes('a/lex.rf') ){
      $value = 'lex';
     } elsif ( $anode->get_referencing_nodes('a/aux.rf') ){

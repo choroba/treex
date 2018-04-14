@@ -173,7 +173,11 @@ override 'process_bundle' => sub {
   my $position = $bundle->id; #$bundle->get_position()+1;
   my $unique_id = ( $self->unique_ids ? '' : $self->{wild}->{file_stem} . "_" ) . $position;
   print { $self->_file_handle } "<s id=\"" . $unique_id . "\"";
-  print { $self->_file_handle } " text=\"" . $zone->get_attr('sentence'). "\"" if $zone->get_attr('sentence');
+  if ( $zone->get_attr('sentence') ) {
+    my $text = $zone->get_attr('sentence') ;
+    $text =~ s/"/\\"/g;
+    print { $self->_file_handle } " text=\"" . $text . "\"";
+  }
   print { $self->_file_handle } " orig_file_sentence=\"" . $bundle->wild->{origid} . "\"" if $bundle->wild->{origid};
   print { $self->_file_handle } " newdoc=\"" . $bundle->wild->{newdoc} . "\"" if $bundle->wild->{newdoc};
   print { $self->_file_handle } " newpar=\"" . $bundle->wild->{newpar} . "\"" if $bundle->wild->{newpar};

@@ -100,8 +100,9 @@ sub get_node_info {
     my %info;
 
     $info{aord}    = $tord2aord->{$t_node->ord};
-    # TODO or eparent?
-    $info{head}    = $t_node->get_parent() ? $tord2aord->{$t_node->get_parent()->ord} : 0;
+    $info{head}     = $t_node->get_parent() ? $tord2aord->{$t_node->get_parent()->ord} : 0;
+    my @eparents = $t_node->get_eparents({ ordered => 1, or_topological => 1 });
+    $info{eparents} = @eparents ? join '|', map { $tord2aord->{$_->ord} } @eparents : $NOT_SET;
     
     $info{lemma}   = $t_node->t_lemma;
     $info{formeme} = $t_node->formeme;
@@ -146,6 +147,7 @@ sub _print_st {
                 # deprel
                 $line->{functor},
                 # deps
+                $line->{eparents},
                 # misc
                 )
             )

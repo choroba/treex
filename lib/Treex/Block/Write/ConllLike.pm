@@ -72,6 +72,10 @@ sub get_node_info {
     $info{"lemma"}   = $t_node->t_lemma;
     $info{"formeme"} = $t_node->formeme;
 
+    if ($t_node->is_generated && $info{"lemma"} !~ /^#/ ) {
+        $info{"lemma"}   = '#' . $info{"lemma"};
+    }
+
     if ($a_node) {    # there is a corresponding node on the a-layer
         $info{"lord"} = $a_node->ord;
         $info{"tag"}  = $a_node->tag;

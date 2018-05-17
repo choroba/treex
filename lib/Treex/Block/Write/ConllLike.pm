@@ -40,9 +40,21 @@ sub process_ttree {
     }
 
     # print the results
+    # sentence id
+    my $tree = $t_root;
+    my $sent_id = $tree->get_bundle->id;
+    if ($self->print_zone_id) {
+        $sent_id .= '/' . $tree->get_zone->get_label;
+    }
+    print {$self->_file_handle} "# sent_id = $sent_id\n";
+    # sentence text
+    my $text = $tree->get_zone->sentence;
+    print {$self->_file_handle} "# text = $text\n" if defined $text;
+    # nodes
     foreach my $line (@data) {
         $this->_print_st($line);
     }
+    # sentence separator
     print { $this->_file_handle } ("\n");
     return 1;
 }
@@ -61,17 +73,20 @@ sub get_node_info {
     $info{"lemma"}   = $t_node->t_lemma;
 
     if ($a_node) {    # there is a corresponding node on the a-layer
+        $info{"lord"} = $a_node->ord;
         $info{"tag"}  = $a_node->tag;
         $info{"form"} = $a_node->form;
         $info{"afun"} = $a_node->afun;
     }
     else {            # generated node
+        $info{"lord"} = $NOT_SET;
         $info{"tag"}  = $NOT_SET;
         $info{"afun"} = $NOT_SET;
         $info{"form"} = $info{"lemma"};
     }
 
     # initialize aux-info
+    $info{"aux_ords"}  = "";
     $info{"aux_forms"}  = "";
     $info{"aux_lemmas"} = "";
     $info{"aux_pos"}    = "";
@@ -83,6 +98,7 @@ sub get_node_info {
 
     # fill in the aux-info
     for my $aux_anode (@aux_anodes) {
+        $info{"aux_ords"}   .= "|" . $aux_anode->ord;
         $info{"aux_forms"}  .= "|" . $aux_anode->form;
         $info{"aux_lemmas"} .= "|" . lemma_proper( $aux_anode->lemma );
         $info{"aux_pos"}    .= "|" . substr( $aux_anode->tag, 0, 1 );
@@ -90,6 +106,7 @@ sub get_node_info {
         $info{"aux_afuns"}  .= "|" . $aux_anode->afun;
     }
 
+    $info{"aux_ords"}   = $info{"aux_ords"}   eq "" ? $NOT_SET : substr( $info{"aux_ords"},  1 );
     $info{"aux_forms"}  = $info{"aux_forms"}  eq "" ? $NOT_SET : substr( $info{"aux_forms"},  1 );
     $info{"aux_lemmas"} = $info{"aux_lemmas"} eq "" ? $NOT_SET : substr( $info{"aux_lemmas"}, 1 );
     $info{"aux_pos"}    = $info{"aux_pos"}    eq "" ? $NOT_SET : substr( $info{"aux_pos"},    1 );
@@ -111,11 +128,9 @@ sub _print_st {
         join(
             "\t",
             (
-                $line->{ord}, $line->{"form"}, $line->{"lemma"}, $NOT_SET,
-                $pos, $NOT_SET, $pfeat, $NOT_SET,
-                $line->{"head"}, $NO_NUMBER, $line->{"functor"}, $NOT_SET,
-                $FILL, $NOT_SET, $line->{"afun"}, $line->{"aux_forms"},
-                $line->{"aux_lemmas"}, $line->{"aux_pos"}, $line->{"aux_subpos"}, $line->{"aux_afuns"}
+                $line->{ord}, $line->{lord}, $line->{aux_ords},
+                $line->{"form"}, $line->{"lemma"}, 
+                $line->{"head"}, $line->{"functor"}, $line->formeme,
                 )
             )
     );

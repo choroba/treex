@@ -30,7 +30,7 @@ has '+extension' => ( default => '.conll' );
 
 # MAIN
 sub process_ttree {
-    my ( $this, $t_root ) = @_;
+    my ( $self, $t_root ) = @_;
     my @data;
 
     # Get all needed informations for each node
@@ -41,21 +41,20 @@ sub process_ttree {
 
     # print the results
     # sentence id
-    my $tree = $t_root;
-    my $sent_id = $tree->get_bundle->id;
-    if ($self->print_zone_id) {
-        $sent_id .= '/' . $tree->get_zone->get_label;
-    }
+    my $a_root = $t_root->get_zone->get_atree();
+    my $sent_id = $a_root->id();
+    $sent_id =~ s/^a-//; 
+    #$sent_id .= '/' . $tree->get_zone->get_label;
     print {$self->_file_handle} "# sent_id = $sent_id\n";
     # sentence text
-    my $text = $tree->get_zone->sentence;
+    my $text = $a_root->get_zone->sentence;
     print {$self->_file_handle} "# text = $text\n" if defined $text;
     # nodes
     foreach my $line (@data) {
-        $this->_print_st($line);
+        $self->_print_st($line);
     }
     # sentence separator
-    print { $this->_file_handle } ("\n");
+    print { $self->_file_handle } ("\n");
     return 1;
 }
 
@@ -71,6 +70,7 @@ sub get_node_info {
     $info{"head"}    = $t_node->get_parent() ? $t_node->get_parent()->ord : 0;
     $info{"functor"} = $t_node->functor ? $t_node->functor : $NOT_SET;
     $info{"lemma"}   = $t_node->t_lemma;
+    $info{"formeme"} = $t_node->formeme;
 
     if ($a_node) {    # there is a corresponding node on the a-layer
         $info{"lord"} = $a_node->ord;
@@ -121,20 +121,20 @@ sub get_node_info {
 #     HEAD, (nothing), FUNCTOR, (nothing), Y, (nothing),
 #     AFUN, AUX-FORMS, AUX-LEMMAS, AUX-POS, AUX-SUBPOS, AUX-AFUNS
 sub _print_st {
-    my ( $this, $line )  = @_;
-    my ( $pos,  $pfeat ) = $this->_analyze_tag( $line->{"tag"} );
+    my ( $self, $line )  = @_;
+    my ( $pos,  $pfeat ) = $self->_analyze_tag( $line->{"tag"} );
 
-    print { $this->_file_handle } (
+    print { $self->_file_handle } (
         join(
             "\t",
             (
                 $line->{ord}, $line->{lord}, $line->{aux_ords},
                 $line->{"form"}, $line->{"lemma"}, 
-                $line->{"head"}, $line->{"functor"}, $line->formeme,
+                $line->{"head"}, $line->{"functor"}, $line->{formeme},
                 )
             )
     );
-    print { $this->_file_handle } ("\n");
+    print { $self->_file_handle } ("\n");
     return;
 }
 
@@ -142,12 +142,12 @@ sub _print_st {
 # language; or double "_", given an unset tag value.
 sub _analyze_tag {
 
-    my ( $this, $tag ) = @_;
+    my ( $self, $tag ) = @_;
 
     if ( $tag eq $NOT_SET ) {
         return ( $NOT_SET, $NOT_SET );
     }
-    if ( $this->language ne "cs" ) {
+    if ( $self->language ne "cs" ) {
         return ( $tag, $NOT_SET );
     }
 

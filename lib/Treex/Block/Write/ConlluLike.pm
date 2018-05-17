@@ -80,7 +80,7 @@ sub process_ttree {
     # Next, let's compute the info
     my $sent_id = substr $t_root->id(), 2;
     my $sent_text = $t_root->get_zone->sentence // '';
-    my @data = map { get_node_info($_, $tord2aord) } @nodes;
+    my @data = sort {$a->{aord} <=> $b->{aord}} map { get_node_info($_, $tord2aord) } @nodes;
 
     # print the results
     print {$self->_file_handle} "# sent_id = $sent_id\n";

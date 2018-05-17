@@ -66,6 +66,12 @@ sub get_tord2aord_mapping {
     return \%tord2aord;
 }
 
+sub ord_in_ords {
+    my ($ord, $ords) = @_;
+
+    my @matched = grep { $_ eq $ord } split /\|/, $ords;
+    return scalar(@matched);
+}
 
 # MAIN
 sub process_ttree {
@@ -80,12 +86,37 @@ sub process_ttree {
     # Next, let's compute the info
     my $sent_id = substr $t_root->id(), 2;
     my $sent_text = $t_root->get_zone->sentence // '';
-    my @data = sort {$a->{aord} <=> $b->{aord}} map { get_node_info($_, $tord2aord) } @nodes;
+    # my @data = sort {$a->{aord} <=> $b->{aord}} map { get_node_info($_, $tord2aord) } @nodes;
+    # t-nodes
+    my %data = map { $_->{aord} => $_  } map { get_node_info($_, $tord2aord) } @nodes;
+    # aux nodes
+    foreach my $a_node ($t_root->get_zone->get_atree->get_descendants) {
+        unless ($data{$a_node->ord}) {
+            my $eparents = join '|',
+                map { $data{$_}->{aord} }
+                grep { ord_in_ords($a_node->ord, $data{$_}->{aux_ords}) }
+                sort {$a <=> $b}
+                keys %data;
+            $data{$a_node->ord} = {
+                aord => $a_node->ord,
+                form => $a_node->form,
+                lemma => $a_node->lemma,
+                eparents => $eparents,
+                # rest not set for auxes
+                aux_ords => $NOT_SET,
+                coref_ords => $NOT_SET,
+                formeme => $NOT_SET,
+                head => $NOT_SET,
+                functor => $NOT_SET,
+            }
+        }
+    }
+    my @lines = map { $data{$_} } sort {$a <=> $b} keys %data;
 
     # print the results
     print {$self->_file_handle} "# sent_id = $sent_id\n";
     print {$self->_file_handle} "# text = $sent_text\n";
-    foreach my $line (@data) {
+    foreach my $line (@lines) {
         $self->_print_st($line);
     }
     print { $self->_file_handle } ("\n");
@@ -111,7 +142,8 @@ sub get_node_info {
     #my $a_node = get_lex_anode_in_same_sentence($t_node);
     #$info{lex_ord} = $a_node ? $a_node->ord : $NOT_SET;
     
-    $info{form}   = join '_', map {$_->form} $t_node->get_anodes({ ordered => 1 });
+    # $info{form}   = join '_', map {$_->form} $t_node->get_anodes({ ordered => 1 });
+    $info{form}   = $t_node->get_lex_anode() ? $t_node->get_lex_anode()->form : $NOT_SET;
 
     my @aux_anodes = grep_this_sent($t_node, $t_node->get_aux_anodes( { ordered => 1 } ));
     $info{aux_ords} = @aux_anodes ? join '|', map { $_->ord } @aux_anodes : $NOT_SET;

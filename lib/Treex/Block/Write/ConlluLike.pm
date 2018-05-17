@@ -1,4 +1,4 @@
-package Treex::Block::Write::ConllLike;
+package Treex::Block::Write::ConlluLike;
 
 use Moose;
 use Treex::Core::Common;

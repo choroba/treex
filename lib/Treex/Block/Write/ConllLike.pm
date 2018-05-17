@@ -30,32 +30,20 @@ has '+extension' => ( default => '.conll' );
 
 # MAIN
 sub process_ttree {
-    my ( $self, $t_root ) = @_;
+    my ( $this, $t_root ) = @_;
     my @data;
 
     # Get all needed informations for each node
     my @nodes = $t_root->get_descendants( { ordered => 1 } );
-    # First, let's establish t_ord to a_ord mapping
     foreach my $node (@nodes) {
         push( @data, get_node_info($node) );
     }
 
     # print the results
-    # sentence id
-    my $a_root = $t_root->get_zone->get_atree();
-    my $sent_id = $a_root->id();
-    $sent_id =~ s/^a-//; 
-    #$sent_id .= '/' . $tree->get_zone->get_label;
-    print {$self->_file_handle} "# sent_id = $sent_id\n";
-    # sentence text
-    my $text = $a_root->get_zone->sentence;
-    print {$self->_file_handle} "# text = $text\n" if defined $text;
-    # nodes
     foreach my $line (@data) {
-        $self->_print_st($line);
+        $this->_print_st($line);
     }
-    # sentence separator
-    print { $self->_file_handle } ("\n");
+    print { $this->_file_handle } ("\n");
     return 1;
 }
 
@@ -71,27 +59,19 @@ sub get_node_info {
     $info{"head"}    = $t_node->get_parent() ? $t_node->get_parent()->ord : 0;
     $info{"functor"} = $t_node->functor ? $t_node->functor : $NOT_SET;
     $info{"lemma"}   = $t_node->t_lemma;
-    $info{"formeme"} = $t_node->formeme;
-
-    if ($t_node->is_generated && $info{"lemma"} !~ /^#/ ) {
-        $info{"lemma"}   = '#' . $info{"lemma"};
-    }
 
     if ($a_node) {    # there is a corresponding node on the a-layer
-        $info{"lord"} = $a_node->ord;
         $info{"tag"}  = $a_node->tag;
         $info{"form"} = $a_node->form;
         $info{"afun"} = $a_node->afun;
     }
     else {            # generated node
-        $info{"lord"} = $NOT_SET;
         $info{"tag"}  = $NOT_SET;
         $info{"afun"} = $NOT_SET;
         $info{"form"} = $info{"lemma"};
     }
 
     # initialize aux-info
-    $info{"aux_ords"}  = "";
     $info{"aux_forms"}  = "";
     $info{"aux_lemmas"} = "";
     $info{"aux_pos"}    = "";
@@ -103,7 +83,6 @@ sub get_node_info {
 
     # fill in the aux-info
     for my $aux_anode (@aux_anodes) {
-        $info{"aux_ords"}   .= "|" . $aux_anode->ord;
         $info{"aux_forms"}  .= "|" . $aux_anode->form;
         $info{"aux_lemmas"} .= "|" . lemma_proper( $aux_anode->lemma );
         $info{"aux_pos"}    .= "|" . substr( $aux_anode->tag, 0, 1 );
@@ -111,21 +90,6 @@ sub get_node_info {
         $info{"aux_afuns"}  .= "|" . $aux_anode->afun;
     }
 
-    $info{"coref_ords"}  = "";
-    for my $antecedetnt ($t_node->get_coref_nodes) {
-        $info{"coref_ords"}  .= "|" . $antecedetnt->ord;
-    }
-    $info{"coref_ords"}   = $info{"coref_ords"}   eq "" ? $NOT_SET : substr( $info{"coref_ords"},  1 );
-    # !! coref může vést i mimo větu
-
-    # $node->get_coref_gram_nodes()
-    # special nodes -- vygenerovanej node odkazuje
-
-    # $node->get_coref_text_nodes()
-    # pronouns -- odkazuje se textem
-
-
-    $info{"aux_ords"}   = $info{"aux_ords"}   eq "" ? $NOT_SET : substr( $info{"aux_ords"},  1 );
     $info{"aux_forms"}  = $info{"aux_forms"}  eq "" ? $NOT_SET : substr( $info{"aux_forms"},  1 );
     $info{"aux_lemmas"} = $info{"aux_lemmas"} eq "" ? $NOT_SET : substr( $info{"aux_lemmas"}, 1 );
     $info{"aux_pos"}    = $info{"aux_pos"}    eq "" ? $NOT_SET : substr( $info{"aux_pos"},    1 );
@@ -140,20 +104,22 @@ sub get_node_info {
 #     HEAD, (nothing), FUNCTOR, (nothing), Y, (nothing),
 #     AFUN, AUX-FORMS, AUX-LEMMAS, AUX-POS, AUX-SUBPOS, AUX-AFUNS
 sub _print_st {
-    my ( $self, $line )  = @_;
-    my ( $pos,  $pfeat ) = $self->_analyze_tag( $line->{"tag"} );
+    my ( $this, $line )  = @_;
+    my ( $pos,  $pfeat ) = $this->_analyze_tag( $line->{"tag"} );
 
-    print { $self->_file_handle } (
+    print { $this->_file_handle } (
         join(
             "\t",
             (
-                $line->{ord}, $line->{lord}, $line->{aux_ords}, $line->{coref_ords},
-                $line->{"form"}, $line->{"lemma"}, 
-                $line->{"head"}, $line->{"functor"}, $line->{formeme},
+                $line->{ord}, $line->{"form"}, $line->{"lemma"}, $NOT_SET,
+                $pos, $NOT_SET, $pfeat, $NOT_SET,
+                $line->{"head"}, $NO_NUMBER, $line->{"functor"}, $NOT_SET,
+                $FILL, $NOT_SET, $line->{"afun"}, $line->{"aux_forms"},
+                $line->{"aux_lemmas"}, $line->{"aux_pos"}, $line->{"aux_subpos"}, $line->{"aux_afuns"}
                 )
             )
     );
-    print { $self->_file_handle } ("\n");
+    print { $this->_file_handle } ("\n");
     return;
 }
 
@@ -161,12 +127,12 @@ sub _print_st {
 # language; or double "_", given an unset tag value.
 sub _analyze_tag {
 
-    my ( $self, $tag ) = @_;
+    my ( $this, $tag ) = @_;
 
     if ( $tag eq $NOT_SET ) {
         return ( $NOT_SET, $NOT_SET );
     }
-    if ( $self->language ne "cs" ) {
+    if ( $this->language ne "cs" ) {
         return ( $tag, $NOT_SET );
     }
 

@@ -106,6 +106,20 @@ sub get_node_info {
         $info{"aux_afuns"}  .= "|" . $aux_anode->afun;
     }
 
+    $info{"coref_ords"}  = "";
+    for my $antecedetnt ($t_node->get_coref_nodes) {
+        $info{"coref_ords"}  .= "|" . $antecedetnt->ord;
+    }
+    $info{"coref_ords"}   = $info{"coref_ords"}   eq "" ? $NOT_SET : substr( $info{"coref_ords"},  1 );
+    # !! coref může vést i mimo větu
+
+    # $node->get_coref_gram_nodes()
+    # special nodes -- vygenerovanej node odkazuje
+
+    # $node->get_coref_text_nodes()
+    # pronouns -- odkazuje se textem
+
+
     $info{"aux_ords"}   = $info{"aux_ords"}   eq "" ? $NOT_SET : substr( $info{"aux_ords"},  1 );
     $info{"aux_forms"}  = $info{"aux_forms"}  eq "" ? $NOT_SET : substr( $info{"aux_forms"},  1 );
     $info{"aux_lemmas"} = $info{"aux_lemmas"} eq "" ? $NOT_SET : substr( $info{"aux_lemmas"}, 1 );
@@ -128,7 +142,7 @@ sub _print_st {
         join(
             "\t",
             (
-                $line->{ord}, $line->{lord}, $line->{aux_ords},
+                $line->{ord}, $line->{lord}, $line->{aux_ords}, $line->{coref_ords},
                 $line->{"form"}, $line->{"lemma"}, 
                 $line->{"head"}, $line->{"functor"}, $line->{formeme},
                 )

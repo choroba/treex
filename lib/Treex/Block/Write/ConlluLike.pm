@@ -109,6 +109,8 @@ sub get_node_info {
 
     #my $a_node = get_lex_anode_in_same_sentence($t_node);
     #$info{lex_ord} = $a_node ? $a_node->ord : $NOT_SET;
+    
+    $info{form}   = join '_', map {$_->form} $t_node->get_anodes({ ordered => 1 });
 
     my @aux_anodes = grep_this_sent($t_node, $t_node->get_aux_anodes( { ordered => 1 } ));
     $info{aux_ords} = @aux_anodes ? join '|', map { $_->ord } @aux_anodes : $NOT_SET;
@@ -130,8 +132,7 @@ sub _print_st {
                 # id
                 $line->{aord},
                 # form
-                # $line->{lex_ord},
-                $NOT_SET,
+                $line->{form},
                 # lemma
                 $line->{lemma}, 
                 # upos

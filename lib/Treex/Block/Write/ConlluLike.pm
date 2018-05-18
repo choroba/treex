@@ -97,6 +97,9 @@ sub process_ttree {
                 grep { ord_in_ords($a_node->ord, $data{$_}->{aux_ords}) }
                 sort {$a <=> $b}
                 keys %data;
+            if ($eparents eq '') {
+                $eparents = $NOT_SET;
+            }
             $data{$a_node->ord} = {
                 aord => $a_node->ord,
                 form => $a_node->form,

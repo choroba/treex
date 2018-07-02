@@ -189,6 +189,12 @@ sub fix_mwt_capitalization
             $fform =~ s/^(.)/\u$1/;
             $node->set_fused_form($fform);
         }
+        # Occasionally the problem occurs also in the middle of the sentence, e.g. after punctuation that might terminate a sentence but does not here.
+        # In such cases we want to lowercase the first part.
+        elsif($node->get_fusion_start() == $node && is_capitalized($pform) && is_lowercase($fform))
+        {
+            $node->set_form(lc($pform));
+        }
     }
 }
 

@@ -451,7 +451,8 @@ sub create_bundle {
     bless $new_bundle, "Treex::Core::Bundle";    # is this correct/sufficient with Moose ????
     $new_bundle->_set_document($self);
 
-    $new_bundle->set_id( "s" . ( $fsfile->lastTreeNo + 1 ) );
+    my $bundle_id = ($arg_ref and $arg_ref->{id}) ? $arg_ref->{id} : "s" . ($fsfile->lastTreeNo + 1);
+    $new_bundle->set_id($bundle_id);
 
     return $new_bundle;
 }

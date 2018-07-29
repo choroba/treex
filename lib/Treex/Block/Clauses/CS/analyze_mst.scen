@@ -1,0 +1,8 @@
+#Read::PDT top_layer=a schema_dir=/net/data/pdt30/resources/ from='!/net/data/pdt30/data/amw/dtest/*.a.gz'
+
+A2A::BackupTree to_selector=baseline
+Clauses::CS::GoldClauseChart
+W2A::CS::ParseMSTAdapted
+
+Util::SetGlobal selector=pdt
+Eval::AtreeUAS

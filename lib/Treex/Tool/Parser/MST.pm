@@ -85,6 +85,19 @@ sub initialize {
 
 sub parse_sentence {
     my ($self, $forms, $lemmas, $tags) = @_;
+
+    # Replace spaces in forms
+    my @forms = @$forms;
+    my @new_forms = ();
+    foreach my $form (@forms) {
+        $form =~ s/\s+/_/g;
+        push(@new_forms, $form);
+    }
+
+    log_info('Input forms: ' . join(',', @forms));
+    log_info('Output forms: ' . join(',', @new_forms));
+    $forms = \@new_forms;
+
     return $self->process($forms, $tags);
 }
 
@@ -143,8 +156,19 @@ sub process {
         print $writer Treex::Tool::Transliteration::DowngradeUTF8forISO2::downgrade_utf8_for_iso2( join( "\t", @$forms_rf ) ) . "\n";
         print $writer Treex::Tool::Transliteration::DowngradeUTF8forISO2::downgrade_utf8_for_iso2( join( "\t", @$tags_rf ) ) . "\n";
 
-        #        print $writer join( "\t", @$forms_rf ) . "\n";
-        #        print $writer join( "\t", @$tags_rf ) . "\n";
+        # FIXME
+        print Treex::Tool::Transliteration::DowngradeUTF8forISO2::downgrade_utf8_for_iso2( join( "\t", @$forms_rf ) ) . "\n";
+        print Treex::Tool::Transliteration::DowngradeUTF8forISO2::downgrade_utf8_for_iso2( join( "\t", @$tags_rf ) ) . "\n";
+        # for (my $i = 0; $i < scalar(@$tags_rf) - 1; $i++) {
+        #     print "_\t";
+        # }
+        # print "_\n";
+        # for (my $i = 0; $i < scalar(@$tags_rf) - 1; $i++) {
+        #     print "_\t";
+        # }
+        # print "_\n";
+        # print "\n";
+
         $_ = <$reader>;
         log_fatal("Treex::Tool::Parser::MST returned nothing") if ( !defined $_ );
         chomp;

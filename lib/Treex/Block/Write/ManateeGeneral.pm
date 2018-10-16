@@ -25,7 +25,21 @@ my %formats = (
   'UD1.3' => 'form lemma pos ufeatures deprel p_form p_lemma p_pos p_ufeatures p_afun parent',
   'styx1.0_input' => 'ord form lemma tag afun head school_deprel school_head',
   'styx1.0' => 'form lemma tag ord school_deprel school_parent school_head school_p_form school_p_lemma school_p_tag afun parent p_ord p_form p_lemma p_tag',
+  'pdt3.5' => 'form lemma tag afun a_type t-functor t-t_lemma t-sempos t-valframe t-tfa clause_number parent p_form p_lemma p_tag p_afun eparent ep_form ep_lemma ep_tag ep_afun t-parent t-p_t_lemma t-p_valframe t-eparent t-ep_t_lemma t-ep_valframe ord p_ord t-ord t-p_ord t-ep_ord',  #is_member grammatemes.rf coref_special antes discourse_special discourse_type discourse_target t-subfunctor
 );
+
+use Data::Printer alias => 'debug', 
+                  colored => 1, 
+		  max_depth => 0, 
+		  show_tied => 1, 
+		  indent => 2,
+		  class => { show_methods => 0, 
+		             internals => 1, 
+			     inherited => 'none', 
+			     parents => 0, 
+			     linear_isa => 0, 
+			     expand => '3' };
+
 
 our %attributes;
 our @attributes;
@@ -37,11 +51,11 @@ sub process_atree {
   return if rand() > $self->randomly_select_sentences_ratio;
 	
   my @anodes = $atree->get_descendants( { ordered => 1 } );
-  for ( my $ind = 0; $ind < @anodes; $ind++ ) {
+  for ( my $ind = 0; $ind < @anodes; $ind++ ) {  ## work with indices because of fused tokens
     my @values;
     foreach (@attributes) {
       push @values, $self->get_attribute ($anodes[$ind], $_); 
-	}
+    }
     until ( !$anodes[$ind]->fused_with_next() ) {
       $ind++;
       for (my $attr_ind=0; $attr_ind < @attributes; $attr_ind++) {
@@ -83,7 +97,7 @@ sub calc_distance{
   my ($anode, $anode2ord) = @_;
   my $dist;
   if ( $anode2ord == '0' ){
-    $dist = '0';
+    $dist = 'ROOT';
   } else {
     $dist = $anode2ord - $anode->ord + 0;
     if ($dist > 0){ $dist= '+'.$dist; }
@@ -96,14 +110,6 @@ sub get_attribute {
   my $value;
   if ($name eq 'form') {
     $value = $anode->fused_form // $anode->form;
-  } elsif ($name eq 'a_type') {
-    if ( $anode->get_referencing_nodes('a/lex.rf') ){
-     $value = 'lex';
-    } elsif ( $anode->get_referencing_nodes('a/aux.rf') ){
-     $value = 'aux';
-    } else {
-     $value = 'null';
-    }
   } elsif ($name eq 'deprel' or $name eq 'afun') {   ## depending on global config, add suffixes do deprel
     $value = $anode->get_attr($name);
     my $suffix = '';
@@ -113,23 +119,65 @@ sub get_attribute {
     $value .= "_$suffix" if $suffix;
   } elsif ($name eq 'ord' ) {
     $value = $anode->ord();
+  } elsif ($name eq 'clause_number' ) {
+    $value = $anode->clause_number;
   } elsif ( $name eq 'pos' and !eval{$anode->wild->pos} ) {
     $value = $anode->tag;
   } elsif ($name eq 'ufeatures') {
     $value = join('|', $anode->iset()->get_ufeatures()); 
 
   ### now the fun part: extracting attributes of parent and effective parents
-  } elsif ( $name =~ m/^e?parent$/ ) {    # parent, eparent -> relative distance (use p_ord for absolute value)
-    my $function = "get_$name";
-    $value = calc_distance($anode,$anode->$function->ord());
+  } elsif ( $name =~ m/^parent$/ ) {    # parent -> relative distance (use p_ord for absolute value)
+    ##my $function = "get_$name";
+    $value = calc_distance($anode,$anode->get_parent->ord());
+  } elsif ( $name =~ m/^eparent$/ ) {    # parent -> relative distance (use p_ord for absolute value)
+    ##my $function = "get_$name";
+    my ($eparent) = $anode->get_eparents({or_topological=>1});
+    $value = calc_distance($anode,$eparent->ord());
   } elsif ( $name =~ m/^p_/ ) {           # attributes of a parent
     (my $attrname = $name) =~ s/^p_//;
     $value = get_attribute($self,$anode->get_parent,$attrname);
   } elsif ( $name =~ m/^ep_/ ) {
+    my ($eparent) = $anode->get_eparents({or_topological=>1});
     (my $attrname = $name) =~ s/^ep_//;
-    $value = get_attribute($self,$anode->get_eparent,$attrname);
+    $value = get_attribute($self,$eparent,$attrname);
   } elsif ( $name =~ m/^conll_/ ) {
     $value = $anode->$name;
+  } elsif ( $name =~ s/^t-// or $name eq 'a_type') {   ## t-layer attributes
+    my ($tnode, $a_type);
+    if ( $anode->get_referencing_nodes("a/lex.rf") ){
+      ($tnode) = $anode->get_referencing_nodes("a/lex.rf");
+      $a_type = 'lex';
+    } elsif ( $anode->get_referencing_nodes("a/aux.rf")  ){
+      ($tnode) = $anode->get_referencing_nodes("a/aux.rf");
+      $a_type = 'aux';
+    } else {   #  $tnode = '_';
+      $a_type = 'null';
+    }
+    if ( $name eq 'a_type')  { 
+      $value = $a_type;
+    } elsif ( $a_type eq 'null' ) {
+      $value = '_';
+    } elsif ( $name eq 'parent' or $name eq 'eparent' ) {
+      if ($a_type eq 'lex') {
+        my ($parent) = $name eq 'parent' ? 
+                       ($tnode->get_parent) :
+                       $tnode->get_eparents({or_topological=>1});
+        if ( $parent->nodetype eq 'root' ) {
+            $value = "ROOT";
+        } elsif ($parent->is_generated eq 1) {
+            $value = "GENERATED";
+        } elsif ( defined $parent->get_lex_anode() ) {
+            $value = calc_distance($anode, $parent->get_lex_anode->ord);
+        } else { ## can this happen??? 
+          $value = '_';
+        }
+      } else {
+        $value = '_';
+      }      
+    } else  { 
+      $value = get_t_attribute($tnode, $name, $a_type);
+    }
   } elsif ( $name =~ m/_head$/  ) {     # e.g. school_parent
     $value = $anode->wild->{$name}->{head};
   } elsif ( $name =~ m/_parent$/  ) {     # e.g. school_parent
@@ -149,8 +197,7 @@ sub get_attribute {
 #    } elsif (exists($anode->wild->{$attrprefix."_head"}->{head}) && $anode->wild->{$attrprefix."_head"}->{head} eq "0") {
 #      $value = "ROOT";
     }
-  ### all other attributes
-  } else {
+  } else {  ### all other attributes
     $value = eval {$anode->get_attr($name)} || 
              eval {$anode->get_attr($name.'_attribute')} ||   ###???? what does this do?
              eval {$anode->wild->{$name}} || 
@@ -163,6 +210,52 @@ sub get_attribute {
     }
   } 
  
+  return ($value // '_');
+}
+
+sub get_t_attribute {
+  my ( $tnode, $name, $a_type ) = @_;
+  my $value; 
+  #if ($a_type eq 'null') { return '_'; } already in main loop
+
+  if ( $name eq 'functor' ) {
+    $value = $tnode->functor;
+    if ($a_type eq 'aux') { $value = lc $value; }
+  } elsif ( $name eq 'sempos' ) {
+    $value = $tnode->gram_sempos;
+    if ($a_type eq 'lex') { 
+      $value = uc $value;
+    }
+  } elsif ( $name eq 'gram' ) { ## multivalue attribute gram/.... IN PROGRESS TODO
+    $value = "";
+    foreach my $attr (qw(sempos gender number numertype typgroup degcmp verbmod deontmod tense aspect resultative dispmod iterativeness indeftype person politeness negation diatgram factmod )){ # definiteness diathesis
+      my $attrname = "gram_$attr";
+      my $attrvalue = $tnode->$attrname;
+      if (defined $attrvalue) {
+        $value .= "|$attr=$attrvalue";
+      }
+    }
+    $value =~ s/^\|*//;
+  } elsif ( $name eq 'valframe' ) {     ## verb's aux are usually part of what we normally consider it's morphological paradigm, so we also assign them the valframe; in contrast, noun's aux are usually prepositions and we do not give them the valframe (but it's questionable in terms of searching for the given valframe!!!)
+    if ( $a_type eq 'lex' or ($tnode->gram_sempos =~ m/^v/)) {
+      $value = $tnode->get_attr('val_frame.rf');
+    }
+  } elsif ( $name =~ m/^e?p_/ and $a_type eq 'lex' ) { # attributes of a parent
+    my $parent;
+    if ( $name =~ s/^p_// ) {
+        $parent = $tnode->get_parent;
+    } elsif ( $name =~ s/^ep_// ) { ## there is no other option, but we need the regex
+      ($parent) = $tnode->get_eparents({or_topological=>1});
+    }
+    if (defined $parent ) {
+      $value = get_t_attribute($parent,$name,'lex');
+    } 
+  } else {
+    if ( $a_type eq 'lex' ) {
+      $value = $tnode->get_attr($name);
+    }
+  }
+
   return ($value // '_');
 }
 

@@ -41,7 +41,7 @@ sub process_atree {
             (qw(lemma pos deprel));        
     		# convert lemma to the basic form
 		my $truncated_lemma = Treex::Tool::Lexicon::CS::truncate_lemma( $lemma, 1 );
-	   #my $tnode;
+       #my $tnode;
        my $a_type; # HOW TO NAME IT MEANINGFULLY???  
        if ( $anode->get_referencing_nodes("a/lex.rf") ){
 

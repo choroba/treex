@@ -156,7 +156,13 @@ sub _relative_coref {
     my @rstr_eparents = grep 'RSTR' eq $_->functor,
                         $tnode->get_eparents;
     for my $parent (@rstr_eparents) {
-        my $up = get_corresponding_unode($unode, $parent);
+        # TODO: Check ktkt.l for examples where this might make a difference.
+        my $up = get_corresponding_unode(
+            $unode,
+            $parent->is_member
+                ? $parent->_get_transitive_coap_root
+                : $parent);
+        log_warn("KTKT $tnode->{id}") if $parent->is_member;
         my @grandparents = $parent->get_eparents;
         for my $gp (@grandparents) {
             if ($gp->id eq $tante_id) {

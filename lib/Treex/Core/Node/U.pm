@@ -176,6 +176,7 @@ sub set_ref_node
 sub make_referential
 {
     my ($self, $refnode) = @_;
+    log_warn("REFERENTIAL $self->{id} $refnode->{id}");
     $self->set_nodetype('ref');
     $self->set_ref_node($refnode);
     $refnode->add_to_alignment($self->get_alignment);

@@ -61,8 +61,9 @@ after 'process_document' => sub {
     for my $tnode_id (@tcoref_sorted) {
         my $tnode = $doc->get_node_by_id($tnode_id);
         my ($unode) = $tnode->get_referencing_nodes('t.rf');
-        warn "T-U $tnode->{id} $unode->{id}";
         next unless $unode;
+
+        warn "T-U $tnode->{id} $unode->{id}";
 
         # First process the nodes from the same sentence.
         my @tantes

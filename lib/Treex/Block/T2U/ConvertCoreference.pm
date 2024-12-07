@@ -7,6 +7,7 @@ use Treex::Core::Common;
 use Treex::Tool::UMR::Common qw{ maybe_set };
 
 use Graph::Directed;
+use Scalar::Util qw{ blessed };
 use namespace::autoclean;
 
 
@@ -62,7 +63,7 @@ after 'process_document' => sub {
         my $tnode = $doc->get_node_by_id($tnode_id);
         my ($unode) = $tnode->get_referencing_nodes('t.rf');
         warn "T-U $tnode->{id} $unode->{id}";
-        next unless $unode;
+        next unless blessed($unode);
 
         # First process the nodes from the same sentence.
         my @tantes

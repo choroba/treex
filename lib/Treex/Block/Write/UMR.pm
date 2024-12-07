@@ -43,7 +43,10 @@ sub process_utree($self, $utree, $sentord) {
 after process_document => sub ($self, @) {
     $self->_resolve_cataphoras;
     print { $self->_file_handle } $self->_buffer;
-    # use Data::Dumper; warn Dumper $self->_id_cache;
+    use Data::Dumper; warn do {
+        local $Data::Dumper::Sortkeys = 1;
+        Dumper $self->_id_cache
+    };
 };
 
 sub _add_to_buffer($self, $string) {

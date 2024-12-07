@@ -34,6 +34,9 @@ before 'process_document' => sub {
 
 my $RELATIVE = '(?:který|jenž|jaký|co|kd[ye]|odkud|kudy|kam)';
 
+# TODO: REMOVE!!!!!!!!!!
+my $DEBUG_SORT = $ENV{BTRED_FAIL} ? sub { $a cmp $b } : sub { $b cmp $a };
+my %SORT_NODETYPE = (ref => 0, entity => 1, event => 2);
 after 'process_document' => sub {
     my ($self, $doc) = @_;
 
@@ -58,15 +61,21 @@ after 'process_document' => sub {
     for my $tnode_id (@tcoref_sorted) {
         my $tnode = $doc->get_node_by_id($tnode_id);
         my ($unode) = $tnode->get_referencing_nodes('t.rf');
+        warn "T-U $tnode->{id} $unode->{id}";
         next unless $unode;
 
+        # First process the nodes from the same sentence.
+        my @tantes
+            = sort { $a->root == $tnode->root ? 0 : 1 }
+              map $doc->get_node_by_id($_),
+              $tcoref_graph->successors($tnode_id);
+        warn join ' ', 'TANTE IDS', map $_->{id}, @tantes if 1 < @tantes;
       TANTE:
-        for my $tante_id ($tcoref_graph->successors($tnode_id)) {
-            warn("NO TANTE $tnode->{id}"),
-            next unless defined $tante_id;
-
-            my $tante = $doc->get_node_by_id($tante_id);
+        for my $tante (@tantes) {
+            my $tante_id = $tante->{id};
             my ($uante) = $tante->get_referencing_nodes('t.rf');
+
+            warn "TNODE $tnode->{id} $unode->{nodetype} TANTE $tante_id $uante->{nodetype}";
 
             if ('INTF' eq $tante->functor) {
                 log_warn("Removing with children: $tante_id")
@@ -82,6 +91,7 @@ after 'process_document' => sub {
                 next TNODE
             }
 
+            warn('DELETED'),
             next TANTE if grep $_->isa('Treex::Core::Node::Deleted'),
                           $unode, $uante;
 
@@ -89,8 +99,16 @@ after 'process_document' => sub {
 
             # inter-sentential link
             if ($unode->root != $uante->root) {
-                $unode->add_coref($uante, 'same-' . $uante->nodetype);
-                $unode->set_nodetype($uante->nodetype);
+                warn 'NODETYPES: ', $unode->{id}, '.', $unode->nodetype // '---', ' ', $uante->{id}, '.', $uante->nodetype // '---';
+                if ($unode->nodetype ne 'ref') {
+                    log_warn("set $tnode->{id} nodetype as $tante_id/$uante->{concept} " . $uante->nodetype);
+                    $unode->add_coref($uante, 'same-' . $uante->nodetype);
+                    $unode->set_nodetype($uante->nodetype);
+                } else {
+                    log_warn("$tnode->{id} is ref");
+                    # $unode->add_coref($uante, 'same-' . $uante->nodetype);
+                    # $unode->set_nodetype($uante->nodetype);
+                }
             }
             # intra-sentential links with underspecified anaphors
             elsif ($tnode->t_lemma
@@ -113,7 +131,7 @@ after 'process_document' => sub {
                                              ? 'event'
                                              : 'entity'));
                 $unode->set_nodetype($uante->nodetype);
-                log_warn("Unsolved coref $tnode_id $tante_id");
+                log_warn("Unsolved coref $tnode_id $tante_id " . $uante->nodetype);
             }
         }
     }

@@ -279,6 +279,7 @@ sub remove {
     my $root     = $self->get_root();
     my $document = $self->get_document();
 
+    log_warn "Removing $self->{id}";
     my @children = $self->get_children();
     if (@children){
         my $what_to_do = 'remove';

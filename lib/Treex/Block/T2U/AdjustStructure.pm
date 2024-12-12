@@ -18,6 +18,8 @@ has '+language' => ( required => 1 );
 my $NEGATION = 'n(?:e|ikoliv?)';
 sub process_unode($self, $unode, $) {
     my $tnode = $unode->get_tnode;
+    return unless $tnode;
+
     $self->translate_compl($unode, $tnode)
         if 'COMPL' eq $tnode->functor;
     $self->subordinate2coord($unode, $tnode)

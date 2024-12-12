@@ -72,11 +72,18 @@ after 'process_document' => sub {
               $tcoref_graph->successors($tnode_id);
         warn join ' ', 'TANTE IDS', map $_->{id}, @tantes if 1 < @tantes;
       TANTE:
-        for my $tante (@tantes) {
+        while (my $tante = shift @tantes) {
             my $tante_id = $tante->{id};
             my ($uante) = $tante->get_referencing_nodes('t.rf');
 
-            warn "TNODE $tnode->{id} $unode->{nodetype} TANTE $tante_id $uante->{nodetype}";
+            if (! defined $uante) {
+                warn "$tnode->{id} no unode for tante $tante_id";
+                next TANTE
+            }
+
+
+            warn "TNODE $tnode->{id} $unode->{nodetype} TANTE $tante_id "
+                . $uante->nodetype;
 
             if ('INTF' eq $tante->functor) {
                 log_warn("Removing with children: $tante_id")

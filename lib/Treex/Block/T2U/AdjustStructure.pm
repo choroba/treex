@@ -195,7 +195,7 @@ sub remove_double_edge($self, $unode, $functor, $tnode) {
     my @unodes = expand_coord($unode);
     warn "Expand: ", join ' ', map $_->concept, @unodes;
     for my $uexp (map $_->children, @unodes) {
-        warn "Try $uexp->{concept}";
+        warn "Try ", $uexp->concept;
         if ($uexp->functor eq $functor) {
             if ('ref' eq $uexp->nodetype) {
                 $uexp->remove;

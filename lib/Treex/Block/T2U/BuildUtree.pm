@@ -208,17 +208,28 @@ sub translate_val_frame
                 my ($umember) = $member->get_referencing_nodes('t.rf');
                 log_warn("ARG$i under " . $unode->concept)
                     if 'ARG' eq $prefix && $i > 2;
+                warn("No member $member->{id}"), next
+                    unless $umember;
+
                 $umember->set_functor($prefix . $i++);
             }
         } else {
             # If different functors are coordinated, move all the members as
             # coordination brothers and remove it.
-            log_debug('Cancelling coap ' . $tnode->id);
+            log_debug(join ' ', 'Cancelling coap', $tnode->id, $tnode->functor);
+            my $first_umember;
             for my $member (@members) {
                 my ($umember) = $member->get_referencing_nodes('t.rf');
+                $first_umember //= $umember;
                 $umember->set_parent($unode->parent);
                 $umember->set_functor($FUNCTOR_MAPPING{ $member->functor }
                                       // $member->functor);
+            }
+            for my $child ($unode->children) {
+                $child->set_parent($first_umember);
+                warn join ' ',
+                    'Children of removed coap',
+                    $tnode->id, $first_umember->concept, $child->concept;
             }
             $unode->remove;
         }

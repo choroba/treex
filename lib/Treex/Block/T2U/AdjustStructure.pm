@@ -42,6 +42,8 @@ sub process_unode($self, $unode, $) {
             $tnode = $tnode->_get_transitive_coap_root;
             ($unode) = $tnode->get_referencing_nodes('t.rf');
         }
+        log_warn('COMPL no unode ' . $tnode->id), return
+            unless $unode;
 
         my @parent_sempos = map substr($_, 0, 1),
                             map {

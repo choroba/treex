@@ -87,6 +87,11 @@ sub process_unode($self, $unode, $) {
 sub subordinate2coord($self, $unode, $tnode) {
     my $t_parent   = $tnode->get_parent;
     my ($u_parent) = $t_parent->get_referencing_nodes('t.rf');
+    if (! $u_parent) {
+        $t_parent = $t_parent->parent;
+        ($u_parent) = $t_parent->get_referencing_nodes('t.rf');
+    }
+    warn "tnode: $tnode->{id}, tparent: $t_parent->{id}";
     my $operator   = $u_parent->parent->create_child;
     $operator->set_concept($unode->functor);
     $operator->set_functor($u_parent->functor);

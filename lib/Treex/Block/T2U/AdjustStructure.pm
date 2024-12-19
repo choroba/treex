@@ -164,7 +164,7 @@ sub adjust_coap($self, $unode, $tnode) {
         my $ch = $_;
         ! grep $ch == $_, @t_members
     } grep ! $_->is_member
-           && 'CM' ne $_->functor
+           && $_->functor !~ /^(?:C(M|ONTRD|NCS))$/
            && ! ('RHEM' eq $_->functor && $_->t_lemma =~ /^$NEGATION$/),
     $tnode->children;
     my @u_members = grep 'ref' ne ($_->nodetype // ""),

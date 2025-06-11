@@ -192,7 +192,7 @@ sub get_coref {
     my $doc = $self->get_document;
     return map {
         [$doc->get_node_by_id($_->{'target_node.rf'}), $_->{'type'}]
-    } @$coref_list;
+    } @$coref_list
 }
 
 sub add_coref {

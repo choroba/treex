@@ -83,32 +83,6 @@ after 'process_document' => sub {
             next TANTE if grep $_->isa('Treex::Core::Node::Deleted'),
                           $unode, $uante;
 
-            if ($tnode->gram_sempos =~ /^n(?!\.quant)/
-                || 'entity' eq $unode->concept
-            ) {
-                # TODO: Container numerals (sempos = n.denot)
-                if ($uante->entity_refnumber) {
-                    $unode->set_entity_refnumber($uante->entity_refnumber)
-                        unless $unode->entity_refnumber;
-                } else {
-                    $self->maybe_set('number', $unode, $tante);
-                }
-
-                if ($tnode->gram_sempos
-                        =~ /^n \. pron \. (?: def \. (?: pers | demon)
-                                            | indef )$/x
-                    || 'entity' eq $unode->concept
-                ) {
-
-                    if ($uante->entity_refperson) {
-                        $unode->set_entity_refperson($uante->entity_refperson)
-                            unless $unode->entity_refperson;
-                    } else {
-                        $self->maybe_set('person', $unode, $tante);
-                    }
-                }
-            }
-
             # inter-sentential link
             if ($unode->root != $uante->root) {
                 $unode->add_coref($uante,
@@ -182,8 +156,6 @@ sub _same_sentence_coref {
         warn "$tnode->{id} made referential to $tante_id";
     }
 }
-
-sub maybe_set { die 'Not implemented, langugage specific' }
 
 sub relative { die 'Not implemented, language specific' }
 

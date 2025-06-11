@@ -2,6 +2,7 @@ package Treex::Block::T2U::CS::AdjustStructure;
 use utf8;
 use Moose;
 extends 'Treex::Block::T2U::AdjustStructure';
+with 'Treex::Tool::UMR::CS::GrammatemeSetter';
 
 use experimental 'signatures';
 

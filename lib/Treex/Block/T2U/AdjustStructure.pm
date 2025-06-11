@@ -5,6 +5,7 @@ use Moose;
 
 use Treex::Core::Common;
 use Treex::Tool::UMR::Common qw{ is_coord expand_coord };
+use Try::Tiny;
 use List::Util qw{ max };
 
 use namespace::autoclean;
@@ -34,15 +35,55 @@ sub process_unode($self, $unode, $) {
                                      && 'name' eq $unode->functor;
 
     my $tnode = $unode->get_tnode;
+    $self->set_person_or_number($unode, $tnode)
+        if $tnode && $tnode->gram_sempos =~ /^n(?!\.quant)/
+        || 'entity' eq $unode->concept;
+
     $self->translate_compl($unode, $tnode)
         if 'COMPL' eq $tnode->functor;
+
     $self->adjust_coap($unode, $tnode) if 'coap' eq $tnode->nodetype;
+
     $self->remove_double_edge($unode, $1, $tnode)
         if $unode->functor =~ /^(.+)-of$/;
+
     $self->negate_sibling($unode, $tnode)
         if 'RHEM' eq $tnode->functor && $tnode->t_lemma =~ /^$negation$/
         || 'CM' eq $tnode->functor && $tnode->t_lemma =~ /^(?:#Neg|$negation)$/;
+
     return
+}
+
+sub set_person_or_number($self, $unode, $tnode) {
+    my @coref;
+    try {
+        @coref = $unode->get_coref;
+    } catch {
+        warn "Ignored: $_";
+    };
+    for my $uante (map $_->[0], @coref) {
+        my $tante = $uante->get_tnode;
+        # TODO: Container numerals (sempos = n.denot)
+        if ($uante->entity_refnumber) {
+            $unode->set_entity_refnumber($uante->entity_refnumber)
+                unless $unode->entity_refnumber;
+        } else {
+            $self->maybe_set('number', $unode, $tante);
+        }
+
+        if ($tnode->gram_sempos
+            =~ /^n \. pron \. (?: def \. (?: pers | demon)
+                                | indef )$/x
+            || 'entity' eq $unode->concept
+        ) {
+            if ($uante->entity_refperson) {
+                $unode->set_entity_refperson($uante->entity_refperson)
+                    unless $unode->entity_refperson;
+            } else {
+                $self->maybe_set('person', $unode, $tante);
+            }
+        }
+    }
 }
 
 sub translate_forn_id($self, $unode) {
@@ -252,6 +293,8 @@ sub remove_double_edge($self, $unode, $functor, $tnode) {
     }
     return
 }
+
+sub maybe_set { die 'Not implemented, langugage specific' }
 
 sub _solve_ref($self, $unode) {
     while ('ref' eq ($unode->nodetype // "")) {

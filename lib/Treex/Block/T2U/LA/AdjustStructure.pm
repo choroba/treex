@@ -1,6 +1,7 @@
 package Treex::Block::T2U::LA::AdjustStructure;
 use Moose;
 extends 'Treex::Block::T2U::AdjustStructure';
+with 'Treex::Tool::UMR::LA::GrammatemeSetter';
 
 use experimental 'signatures';
 

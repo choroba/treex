@@ -171,4 +171,61 @@ sub _parse_mapping($self, $file) {
     }
 }
 
+=encoding utf-8
+
+=head1 NAME
+
+Treex::Tool::UMR::PDTV2PB - A role translating a valency lexicon to PropBank
+
+=head1 DESCRIPTION
+
+This role maps valency frames to propbank frames.
+
+=head1 METHODS
+
+=over 4
+
+=item mapping
+
+Contains a hash that maps each vallex frame id to a hash that contains the
+corresponding UMR concept and relations for all frame members.
+
+  v41jsB => {
+      'umr_id' => "být-001",
+      'PAT' => 'ARG2',
+      'ORIG' => 'causer',
+      'ACT' => 'ARG1'
+  };
+
+
+The values can be more complicated if transformation of the frame is needed, e.g.
+
+  'ACT' => "[if(PAT:možný,nutný)(!root)"
+         . "if(PAT:možný)(!modal-strength(neutral-affirmative))"
+         . "if(PAT:nutný)(!modal-strength(partial-affirmative))"
+         . "if(PAT:obtížný,správný,uskutečnitelný)(ARG1)"
+         . "else(!error)]"
+
+=back
+
+=head1 CONSTRUCTING
+
+The consuming class has to either provide the C<mapping> file (used in the
+Latin Dependency Treebank) or provide the C<vallex> and C<csv>: the valency
+lexicon in the PDT Vallex format and a converion table.
+
+=head1 AUTHOR
+
+Jan Štěpánek <stepanek@ufal.mff.cuni.cz>
+
+=head1 COPYRIGHT AND LICENSE
+
+Copyright © 2025 by Institute of Formal and Applied Linguistics, Charles
+University in Prague.
+
+This module is free software; you can redistribute it and/or modify it under
+the same terms as Perl itself.
+
+=cut
+
 1

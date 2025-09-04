@@ -72,18 +72,22 @@ sub _build_mapping($self) {
 
             ($self->_by_id->{$frame_id}{word} // "") eq $verb
                 or log_warn("$frame_id: $verb != "
-                            . ($self->_by_id->{$frame_id}{word} // '-'));
-            $current_id = $frame_id;
-            my $umr_id = ($row->[0] =~ /^"(.*)"$/)[0];
-            log_warn("Already exists $current_id $umr_id!")
-                if exists $mapping{$current_id}
-                && $mapping{$current_id}{umr_id} ne $umr_id;
-            $mapping{$current_id}{umr_id} = $umr_id;
+                            . ($self->_by_id->{$frame_id}{word} // '-'))
+                if $frame_id;
+            if ($current_id = $frame_id) {
+                my $umr_id = ($row->[0] =~ /^"(.*)"$/)[0];
+                log_warn("Already exists $current_id $umr_id!")
+                    if exists $mapping{$current_id}
+                    && $mapping{$current_id}{umr_id} ne $umr_id;
+                $mapping{$current_id}{umr_id} = $umr_id;
+            }
 
-        } else {
+        } elsif ($current_id) {
             my $relation = $row->[4];
-            $relation = $row->[3] if ! defined $relation
-                                  || $relation !~ /^\??(?:ARG(?:\d|m-\w{3}))$/;
+            if ($relation =~ /[!(:]/) {
+                $relation = '[' . $self->validated_relation($relation) . ']';
+            }
+            $relation = $row->[3] if ! defined $relation;
             chomp $relation if $relation;
             if ($relation) {
                 my ($functor) = $row->[1] =~ /^(?:\?|ALT-)?([^:]+)/;
@@ -148,6 +152,23 @@ sub _parse_mapping($self, $file) {
 
     }
     return \%mapping
+}
+
+{   my $COMMAND = qr/!(?: delete
+                        | root
+                        | error
+                        | modal-strength\((?:neutral | partial) -affirmative\))
+                    /x;
+    my $IF = qr/if \( (?: [A-Z]+ : [\w,]+
+                        | functor:[A-Z]+
+                      ) \) \( (?: \w+ | $COMMAND ) \)/x;
+    my $CONDITION = qr/(?:$IF | $IF(?:\n$IF)+)(?: \n else\($COMMAND\) )?$/x;
+
+    sub validated_relation($self, $relation) {
+        return $relation
+            if $relation =~ /^(?: !delete | (?: !delete\ )?$CONDITION )$/x;
+        die "INVALID RELATION SYNTAX [$relation]";
+    }
 }
 
 1

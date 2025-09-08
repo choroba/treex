@@ -70,13 +70,19 @@ sub _build_mapping($self) {
             my ($verb, $frame_id) = $row->[1] =~ /(.*) \((.*)\)/;
             next unless $frame_id;
 
+            if ($row->[4]) {
+                $mapping{$current_id}{rule} =  '['
+                                            . $self->validated_lemma($row->[4])
+                                            . ']';
+            }
+
             ($self->_by_id->{$frame_id}{word} // "") eq $verb
                 or log_warn("$frame_id: $verb != "
                             . ($self->_by_id->{$frame_id}{word} // '-'))
                 if $frame_id;
             if ($current_id = $frame_id) {
                 my $umr_id = ($row->[0] =~ /^"(.*)"$/)[0];
-                log_warn("Already exists $current_id $umr_id!")
+                log_warn("Already exists $current_id $umr_id!"), next
                     if exists $mapping{$current_id}
                     && $mapping{$current_id}{umr_id} ne $umr_id;
                 $mapping{$current_id}{umr_id} = $umr_id;
@@ -154,20 +160,38 @@ sub _parse_mapping($self, $file) {
     return \%mapping
 }
 
-{   my $COMMAND = qr/!(?: delete
-                        | root
-                        | error
-                        | modal-strength\((?:neutral | partial) -affirmative\))
+{   my $COMMAND = qr/ ! (?: delete
+                          | root
+                          | error
+                          | polarity\(-\)
+                          | modal-strength\((?: neutral
+                                              | partial
+                                            )-(?: neg | affirm) ative \))
                     /x;
-    my $IF = qr/if \( (?: [A-Z]+ : [\w,]+
-                        | functor:[A-Z]+
-                      ) \) \( (?: \w+ | $COMMAND ) \)/x;
-    my $CONDITION = qr/(?:$IF | $IF(?:\n$IF)+)(?: \n else\($COMMAND\) )?$/x;
+    my $LEMMA = qr/(?:\w+-)+\d+/x;
+    my $REL_IF = qr/if \( (?: [A-Z]+ : [\w,]+
+                            | functor:[A-Z]+
+                          ) \) \( (?: \w+ | $COMMAND ) \)/x;
+    my $LEM_IF = qr/if \( (?: [A-Z]+ : [\w,]+ ) \)
+                       \( (?: $LEMMA (?: \  $COMMAND )?
+                            | !delete,[A-Z]+ ) \)/x;
+    my $REL_CONDITION = qr/(?: $REL_IF
+                             | $REL_IF (?: \n $REL_IF )+)
+                               (?: \n else\($COMMAND\) )?$/x;
+    my $LEM_CONDITION = qr/(?: $LEM_IF
+                             | $LEM_IF (?:\n $LEM_IF )+)
+                               (?: \n else\($COMMAND\) )?$/x;
 
     sub validated_relation($self, $relation) {
         return $relation
-            if $relation =~ /^(?: !delete | (?: !delete\ )?$CONDITION )$/x;
+            if $relation =~ /^(?: !delete | (?: !delete\ )?$REL_CONDITION )$/x;
         die "INVALID RELATION SYNTAX [$relation]";
+    }
+    sub validated_lemma($self, $lemma) {
+        return $lemma if $lemma =~ /^(?: $LEMMA (?: \s+ $COMMAND )?
+                                         | $LEM_CONDITION
+                                         | !delete,[A-Z]+ )$/x;
+        die "INVALID LEMMA SYNTAX [$lemma]";
     }
 }
 

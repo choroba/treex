@@ -87,11 +87,41 @@ sub translate_val_frame
         $valframe_id =~ s/^.*#//;
         my $mapping = $self->mapping->{$valframe_id};
         if (my $pb_concept = $mapping->{umr_id}) {
-            $unode->set_concept($pb_concept);
+            if ($mapping->{rule}) {
+                $self->apply_rule($unode, $tnode, $mapping);
+            } else {
+                $unode->set_concept($pb_concept);
+            }
         }
     }
     return $was_successful
 }
+
+sub apply_rule
+{
+    my ($self, $unode, $tnode, $mapping) = @_;
+    my $rule = $mapping->{rule};
+
+    if ($rule =~ /^\[([-a-z]+-\d+)\]/) {
+        $unode->set_concept($1);
+
+    } elsif ($rule =~ /^\[([^-]+)-([A-Z]+)-(\d{3})(?:$| !)/) {
+        my ($prefix, $var, $num) = @{^CAPTURE};
+        if (my @tnodes = grep $var eq $_->functor, $tnode->get_echildren) {
+            $unode->set_concept(join '-', $prefix, $tnodes[0]->t_lemma, $num);
+            warn join ' ', 'TOO MANY LEMMAS', $rule, $tnode->id,
+                           $tnode->val_frame_rf,
+                           map $_->t_lemma, @tnodes
+                if @tnodes > 1;
+        } else {
+            warn "NO LEMMAS ", $tnode->id;
+            $unode->set_concept('?' . $mapping->{umr_id});
+        }
+    } else {
+        warn "RULE $rule";
+    }
+}
+
 
 {   my %FUNCTOR_MAPPING = (
     ##### ROOT NODES ###########################

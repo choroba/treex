@@ -34,6 +34,26 @@ sub process_unode($self, $unode, $) {
         return
     }
 
+    # Frame transformations.
+    if ($unode->functor =~ /^\[!delete(?:\]$| (.+)\])/s) {
+        my $remaining = $1;
+        if ($remaining =~ /^if\(functor:([A-Z]+)\)\((ARG\d)\)/) {
+            my ($tfunc, $ufunc) = @{^CAPTURE};
+            for my $ch ($unode->children) {
+                my $tch = $ch->get_tnode;
+                $ch->set_functor($ufunc) if $tch->functor eq $tfunc;
+                warn "SETTING $ch->{id} $tch->{id} $tfunc $ufunc";
+            }
+        } else {
+            warn "REMAINING: $remaining";
+        }
+        for my $ch ($unode->children) {
+            $ch->set_parent($unode->parent);
+        }
+        $self->safe_remove($unode, $unode->parent);
+        return
+    }
+
     if ('#Forn' eq ($unode->concept // "")) {
         if ('name' eq $unode->functor) {
             $self->translate_forn($unode, 'name', 1);

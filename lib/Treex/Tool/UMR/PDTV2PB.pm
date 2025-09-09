@@ -69,12 +69,6 @@ sub _build_mapping($self) {
         if ($row->[0]) {
             my ($verb, $frame_id) = $row->[1] =~ /(.*) \((.*)\)/;
 
-            if ($row->[4]) {
-                $mapping{$current_id}{rule} =  '['
-                                            . $self->validated_lemma($row->[4])
-                                            . ']';
-            }
-
             ($self->_by_id->{$frame_id}{word} // "") eq $verb
                 or log_warn("$frame_id: $verb != "
                             . ($self->_by_id->{$frame_id}{word} // '-'))
@@ -85,8 +79,13 @@ sub _build_mapping($self) {
                     if exists $mapping{$current_id}
                     && $mapping{$current_id}{umr_id} ne $umr_id;
                 $mapping{$current_id}{umr_id} = $umr_id;
+                if ($row->[4]) {
+                    $mapping{$current_id}{rule}
+                        =  '['
+                        . $self->validated_lemma($row->[4])
+                        . ']';
+                }
             }
-
         } elsif ($current_id) {
             my $relation = $row->[4];
             if ($relation =~ /[!(:]/) {

@@ -103,7 +103,7 @@ sub translate_val_frame
         my ($self, $unode, $tnode, $mapping) = @_;
         my $rule = $mapping->{rule};
 
-        if ($rule =~ /^\[([-a-z]+-\d+)\]/) {
+        if ($rule =~ /^\[([-[:alpha:]]+-\d+)\]/) {
             $unode->set_concept($1);
 
         } elsif ($rule =~ /^\[([^-]+)-([A-Z]+)-(\d{3})(?s:$| !(.+))/) {

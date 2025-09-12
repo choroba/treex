@@ -99,39 +99,51 @@ sub translate_val_frame
     return $was_successful
 }
 
-{   my %ATTR_MAP = ('modal-strength' => 'modal_strength');
-    sub apply_rule
-    {
-        my ($self, $unode, $tnode, $mapping) = @_;
-        my $rule = $mapping->{rule};
+sub apply_rule
+{
+    my ($self, $unode, $tnode, $mapping) = @_;
+    my $rule = $mapping->{rule};
 
-        if ($rule =~ /^\[([-[:alpha:]]+-\d+)\]/) {
-            $unode->set_concept($1);
-
-        } elsif ($rule =~ /^\[([^-]+)-([A-Z]+)-(\d{3})(?s:$| !(.+))/) {
-            my ($prefix, $var, $num, $rest) = @{^CAPTURE};
-            if (my @tnodes = grep $var eq $_->functor, $tnode->get_echildren) {
-                $unode->set_concept(join '-',
-                                    $prefix, $tnodes[0]->t_lemma, $num);
-                warn join ' ', 'TOO MANY LEMMAS', $rule, $tnode->id,
-                               $tnode->val_frame_rf,
-                               map $_->t_lemma, @tnodes
-                    if @tnodes > 1;
-
-                if ($rest =~ /^([-\w]+)\(([-\w]+)\)/) {
-                    my ($attr, $value) = @{^CAPTURE};
-                    $unode->set_attr($ATTR_MAP{$attr}, $value);
-                    warn 'SET ', $ATTR_MAP{$attr} // 'UNKNOWN', " $value";
-                } else {
-                    warn "UNKNON RULE $rest";
-                }
-            } else {
-                warn "NO LEMMAS ", $tnode->id;
-                $unode->set_concept('?' . $mapping->{umr_id});
-            }
-        } else {
-            warn "RULE $rule";
+    if ($rule =~ /^\[([-[:lower:]]+-\d+)(?:\]|\s+!(.+))/) {
+        my ($concept, $rule) = @{^CAPTURE};
+        $unode->set_concept($concept);
+        if ($rule) {
+            $self->rule_set_attr($unode, $rule) or warn "RULE UNKNOWN: $rule";
         }
+
+    } elsif ($rule =~ /^\[([^-]+)-([A-Z]+)-(\d{3})(?s:$| !(.+))/) {
+        my ($prefix, $var, $num, $rest) = @{^CAPTURE};
+        if (my @tnodes = grep $var eq $_->functor, $tnode->get_echildren) {
+            $unode->set_concept(join '-',
+                                $prefix, $tnodes[0]->t_lemma, $num);
+            warn join ' ', 'TOO MANY LEMMAS', $rule, $tnode->id,
+                           $tnode->val_frame_rf,
+                           map $_->t_lemma, @tnodes
+                if @tnodes > 1;
+
+            $self->rule_set_attr($unode, $rest) or warn "RULE UNKNOWN: $rule"
+                if $rest;
+        } else {
+            warn "NO LEMMAS ", $tnode->id;
+            $unode->set_concept('?' . $mapping->{umr_id});
+        }
+    } else {
+        warn "RULE $rule";
+    }
+}
+
+{   my %ATTR_MAP = ('modal-strength' => 'modal_strength',
+                    polarity         => 'polarity');
+    sub rule_set_attr
+    {
+        my ($self, $unode, $rule) = @_;
+        if ($rule =~ /^([-\w]+)\(([-\w]+)\)/) {
+            my ($attr, $value) = @{^CAPTURE};
+            $unode->set_attr($ATTR_MAP{$attr}, $value);
+            warn 'SET ', $ATTR_MAP{$attr} // 'UNKNOWN', " $value";
+            return 1
+        }
+        return
     }
 }
 

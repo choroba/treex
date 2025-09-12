@@ -124,37 +124,48 @@ sub _parse_mapping($self, $file) {
     open my $in, '<', $file or die $!;
     my ($umr_id);
     while (my $line = <$in>) {
-        if ($line =~ /^ : id: ([-\w]+)/) {
+        if ($line =~ /^: id: (.+)/) {
             $umr_id = $1;
+            $umr_id =~ s/-conflict$//;
+            if ($umr_id =~ /[!(:]/) {
+                $umr_id = $self->validated_lemma($umr_id);
+            }
 
         } elsif ($line =~ /^ \+ (.*)/) {
-            push @pairs, split /, /, $1;
+            push @pairs, $1 =~ /(\w+ \[[^]]+\])/g;
 
         } elsif ($line =~ /^\s*-Vallex1_id: (.*)/) {
             my @frames = split /; /, $1;
             for my $frame (@frames) {
-                $frame =~ s/^v#//;
                 $mapping{$frame}{umr_id} = $umr_id;
                 log_warn("Already exists $umr_id")
                     if exists $mapping{$frame}
                     && $mapping{$frame}{umr_id} ne $umr_id;
 
                 for my $pair (@pairs) {
-                    my ($functor, $relation) = $pair =~ /(\w+) \[(\w+)\]/
+                    my ($functor, $relation) = $pair =~ /(\w+) \[([^]]+)\]/
                         or next;
 
                     next if 'NA' eq $relation;
 
-                    log_warn("Ambiguous mapping $frame $functor:"
+                    log_warn("Ambiguous mapping $frame $functor $umr_id:"
                              . " $relation/$mapping{$frame}{$functor}")
                         if exists $mapping{$frame}{$functor}
                         && $mapping{$frame}{$functor} ne $relation;
+                    if ($relation =~ /[(!:]/) {
+                        $relation = '['
+                                  . $self->validated_relation($relation)
+                                  . ']';
+                    }
                     $mapping{$frame}{$functor} = $relation;
                 }
             }
             @pairs = ();
-        }
 
+        } elsif ($line =~ /^$/) {
+            @pairs = ();
+            undef $umr_id;
+        }
     }
     return \%mapping
 }

@@ -9,6 +9,7 @@ class_type 'XML::LibXML::Element';
 use experimental qw( signatures );
 
 use Treex::Core::Log qw{ log_warn };
+use Treex::Tool::UMR::PDTV2PB::Parser;
 use Text::CSV_XS;
 use XML::LibXML;
 use namespace::clean;
@@ -18,6 +19,11 @@ has csv     => (is => 'ro', isa => Str, init_arg => undef, writer => '_set_csv')
 has mapping => (is => 'ro', lazy => 1, isa => HashRef[HashRef[Str]],
                 init_arg => undef, builder => '_build_mapping',
                 writer => '_set_mapping');
+has parser  => (is => 'ro', lazy => 1,
+                isa => 'Treex::Tool::UMR::PDTV2PB::Parser',
+                builder => '_build_parser');
+has debug   => (is => 'ro', default => 0);
+
 has _csv    => (is => 'ro', lazy => 1, isa => FileHandle,
                 init_arg => undef, builder => '_build__csv');
 has _vdom   => (is => 'ro', lazy => 1,
@@ -82,17 +88,15 @@ sub _build_mapping($self) {
                 $mapping{$current_id}{umr_id} = $umr_id;
                 if ($row->[4]) {
                     $mapping{$current_id}{rule}
-                        =  '['
-                        . $self->validated_lemma($row->[4])
-                        . ']';
+                        = $self->validated_lemma($row->[4]);
                 }
             }
         } elsif ($current_id) {
             my $relation = $row->[4];
-            if ($relation =~ /[!(:]/) {
-                $relation = '[' . $self->validated_relation($relation) . ']';
+            if (($relation // "") =~ /[!(:]/) {
+                $relation = $self->validated_relation($relation);
             }
-            $relation = $row->[3] if ! defined $relation;
+            $relation = $row->[3] unless length $relation;
             chomp $relation if $relation;
             if ($relation) {
                 my ($functor) = $row->[1] =~ /^(?:\?|ALT-)?([^:]+)/;
@@ -122,13 +126,14 @@ sub _parse_mapping($self, $file) {
     my %mapping;
     my @pairs;
     open my $in, '<', $file or die $!;
-    my ($umr_id);
+    my ($umr_id, $rule);
     while (my $line = <$in>) {
         if ($line =~ /^: id: (.+)/) {
             $umr_id = $1;
             $umr_id =~ s/-conflict$//;
             if ($umr_id =~ /[!(:]/) {
-                $umr_id = $self->validated_lemma($umr_id);
+                eval { $rule = $self->validated_lemma($umr_id) }
+                    or die "Cannot parse: $line";
             }
 
         } elsif ($line =~ /^ \+ (.*)/) {
@@ -152,12 +157,10 @@ sub _parse_mapping($self, $file) {
                              . " $relation/$mapping{$frame}{$functor}")
                         if exists $mapping{$frame}{$functor}
                         && $mapping{$frame}{$functor} ne $relation;
-                    if ($relation =~ /[(!:]/) {
-                        $relation = '['
-                                  . $self->validated_relation($relation)
-                                  . ']';
-                    }
+                    $relation = $self->validated_relation($relation)
+                        if $relation =~ /[(!:]/;
                     $mapping{$frame}{$functor} = $relation;
+                    $mapping{$frame}{rule} = $rule if $rule;
                 }
             }
             @pairs = ();
@@ -165,44 +168,22 @@ sub _parse_mapping($self, $file) {
         } elsif ($line =~ /^$/) {
             @pairs = ();
             undef $umr_id;
+            undef $rule;
         }
     }
     return \%mapping
 }
 
-{   my $COMMAND = qr/ ! (?: delete
-                          | root
-                          | error
-                          | polarity\(-\)
-                          | modal-strength\((?: neutral
-                                              | partial
-                                            )-(?: neg | affirm) ative \))
-                    /x;
-    my $LEMMA = qr/(?:\w+-)+\d+/x;
-    my $REL_IF = qr/if \( (?: [A-Z]+ : [\w,]+
-                            | functor:[A-Z]+
-                          ) \) \( (?: \w+ | $COMMAND ) \)/x;
-    my $LEM_IF = qr/if \( (?: [A-Z]+ : [\w,]+ ) \)
-                       \( (?: $LEMMA (?: \  $COMMAND )?
-                            | !delete,[A-Z]+ ) \)/x;
-    my $REL_CONDITION = qr/(?: $REL_IF
-                             | $REL_IF (?: \n $REL_IF )+)
-                               (?: \n else\($COMMAND\) )?$/x;
-    my $LEM_CONDITION = qr/(?: $LEM_IF
-                             | $LEM_IF (?:\n $LEM_IF )+)
-                               (?: \n else\($COMMAND\) )?$/x;
+sub _build_parser($self) {
+    'Treex::Tool::UMR::PDTV2PB::Parser'->new(debug => $self->debug)
+}
 
-    sub validated_relation($self, $relation) {
-        return $relation
-            if $relation =~ /^(?: !delete | (?: !delete\ )?$REL_CONDITION )$/x;
-        die "INVALID RELATION SYNTAX [$relation]";
-    }
-    sub validated_lemma($self, $lemma) {
-        return $lemma if $lemma =~ /^(?: $LEMMA (?: \s+ $COMMAND )?
-                                         | $LEM_CONDITION
-                                         | !delete,[A-Z]+ )$/x;
-        die "INVALID LEMMA SYNTAX [$lemma]";
-    }
+sub validated_relation($self, $relation) {
+    $self->parser->parse($relation)
+}
+
+sub validated_lemma($self, $lemma) {
+    $self->parser->parse($lemma)
 }
 
 =encoding utf-8

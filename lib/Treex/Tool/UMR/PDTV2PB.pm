@@ -116,7 +116,7 @@ sub _build_mapping($self) {
             log_warn("Duplicate relation $duplicate in $id.");
         }
     }
-
+    $self->parser->die_if_errors;
     return \%mapping
 }
 
@@ -169,6 +169,7 @@ sub _parse_mapping($self, $file) {
             undef $rule;
         }
     }
+    $self->parser->die_if_errors;
     return \%mapping
 }
 

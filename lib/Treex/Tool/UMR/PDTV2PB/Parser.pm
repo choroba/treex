@@ -1,4 +1,5 @@
 package Treex::Tool::UMR::PDTV2PB::Parser;
+use utf8;
 use Moose;
 use experimental qw( signatures );
 
@@ -7,6 +8,7 @@ use namespace::clean;
 
 has dsl     => (is => 'ro', lazy => 1, builder => '_build_dsl');
 has grammar => (is => 'ro', lazy => 1, builder => '_build_grammar');
+has errors  => (is => 'ro', default => sub { [] });
 has debug   => (is => 'ro', default => 0);
 
 
@@ -16,34 +18,65 @@ sub _build_dsl($) {
     lexeme default = latm => 1
 
     :default           ::= action => [name,values]
-    Rule               ::= Commands
-    Commands           ::= Value | attr colon Value | Value MaybeComma Commands | Command | Command MaybeComma Commands
+    Rule               ::= Commands  action => ::first
+    Commands           ::= Value                          action => ::first
+                         | Value (MaybeComma) Commands    action => [values]
+                         | Command                        action => ::first
+                         | Command (MaybeComma) Commands  action => [values]
     MaybeComma         ::= comma
     MaybeComma         ::= 
     Value              ::= Relation | Concept | functor
     Command            ::= (exclam) No_args | (exclam) Args | If | DeleteRoot
-    DeleteRoot         ::= (lpar) (exclam) delete comma functor (rpar)
-    If                 ::= if (lpar) Conditions (rpar) (lpar) Commands (rpar) Else
-    Else               ::= else (lpar) Commands (rpar) | else If | else (exclam) No_args
-    Conditions         ::= Condition | Condition comma Conditions
-    Condition          ::= Maybe_node attr colon Lemmas | functor colon Lemmas | Maybe_node attr colon functor
-    Maybe_node         ::= node (dot)
-    Maybe_node         ::= 
-    Lemmas             ::= Lemma | Lemma comma Lemmas
-    Lemma              ::= lemma | upper1 lemma
-    Relation           ::= arg num
-    Concept            ::= Cprefixes Csuffix | concept
-    Csuffix            ::= csuffix | new dash csuffix
-    Cprefixes          ::= cprefix dash Cprefixes | cprefix dash functor | cprefix dash functor dash | cprefix dash
-    No_args            ::= delete | root | error | ok
-    Args               ::= Set_modal_strength | Set_aspect | Set_polarity | Set_tlemma | Set_relation | Add
-    Set_modal_strength ::= modal_strength (lpar) modal_strength_value (rpar)
-    Set_aspect         ::= aspect (lpar) aspect_value (rpar)
-    Set_polarity       ::= polarity (lpar) dash (rpar)
-    Set_tlemma         ::= tlemma (lpar) Concept (rpar)
-    Set_relation       ::= relation (lpar) Relation (rpar)
-    Add                ::= add (lpar) node (dot) Args_list (rpar)
-    Args_list           ::= Args | Args (comma) Args_list
+    DeleteRoot         ::= (lpar) (exclam) delete (comma) functor (rpar)
+    If                 ::= if (lpar) Conditions (rpar) (lpar) Commands (rpar) (else) Else  action => If
+    Else               ::= (lpar) Commands (rpar)
+                         | If
+                         | (exclam) No_args
+    Conditions         ::= Condition                     action => [values]
+                         | Condition (comma) Conditions  action => append
+    Condition          ::= Maybe_node attr (colon) Lemmas   action => list_def
+                         | functor (colon) Lemmas           action => [values]
+                         | Maybe_node attr (colon) Functors  action => list_def
+                         | Macro
+    Macro              ::= dollar macro
+    Maybe_node         ::= node (dot)  action => ::first
+    Maybe_node         ::=             action => empty
+    Lemmas             ::= Lemma                 action => [values]
+                         | Lemma (comma) Lemmas  action => append
+    Lemma              ::= lemma         action => ::first
+                         | upper1 lemma  action => concat
+    Functors           ::= functor  action => [values],
+                         | functor (comma) Functors action => append
+    Relation           ::= arg num  action => concat
+                         | rel_val  action => ::first
+    Concept            ::= Cprefixes Csuffix action => concat
+                         | concept           action => ::first
+    Csuffix            ::= csuffix           action => ::first
+                         | new dash csuffix  action => concat
+    Cprefixes          ::= cprefix dash Cprefixes     action => concat
+                         | cprefix dash functor       action => concat
+                         | cprefix dash functor dash  action => concat
+                         | cprefix dash               action => concat
+    No_args            ::= delete  action => ::first
+                         | root    action => ::first
+                         | error   action => ::first
+                         | ok      action => ::first
+    Args               ::= Set_modal_strength  action => ::first
+                         | Set_aspect          action => ::first
+                         | Set_polarity        action => ::first
+                         | Set_tlemma          action => ::first
+                         | Set_relation        action => ::first
+                         | Add                 action => ::first
+                         | Move                action => ::first
+    Set_modal_strength ::= modal_strength (lpar) modal_strength_value (rpar)  action => ::first
+    Set_aspect         ::= (aspect lpar) aspect_value (rpar)
+    Set_polarity       ::= (polarity lpar) dash (rpar)
+    Set_tlemma         ::= (tlemma lpar) Concept (rpar)
+    Set_relation       ::= (relation lpar) Relation (rpar)
+    Add                ::= (add lpar) node (dot) Set_tlemma (comma) Set_relation (rpar)
+    Args_list          ::= Args  action => [values]
+                         | Args (comma) Args_list  action => append
+    Move               ::= move (lpar) node (colon) Relation (comma) Relation (rpar) action => [values]
 
     :discard             ~ whitespace
     whitespace           ~ [\s]+
@@ -62,20 +95,24 @@ sub _build_dsl($) {
     aspect               ~ 'aspect'
     modal_strength_value ~ 'neutral-affirmative' | 'partial-affirmative' | 'neutral-negative'
     aspect_value         ~ 'habitual'
-    concept              ~ 'concept' | 'thing' | 'person'
+    concept              ~ 'concept' | 'thing' | 'person' | 'relative-position' | 'umr-unknown'
     attr                 ~ 'functor' | 't_lemma'
     tlemma               ~ 't_lemma'
     root                 ~ 'root'
     add                  ~ 'add'
+    move                 ~ 'move'
     error                ~ 'error'
     ok                   ~ 'ok'
     else                 ~ 'else'
     relation             ~ 'functor'
+    macro                ~ 'n.denot-v' | 'n.denot' | 'noun,verb' | 'n.pron.indef' | 'lemma-not-všechen' | 'n-not-adj' | 'noun' | 'not-adj'
+    dollar               ~ '$'
     colon                ~ ':'
     if                   ~ 'if'
     dash                 ~ '-'
     comma                ~ ','
-    functor              ~ 'ACT' | 'PAT' | 'CPHR' | 'MANN' | 'BEN' | 'RSTR'
+    functor              ~ 'ACT' | 'PAT' | 'EFF' | 'ADDR' | 'ORIG' | 'CPHR' | 'DPHR' | 'MANN' | 'BEN' | 'RSTR' | 'LOC' | 'DIR1' | 'REG' | 'AIM' | 'ACMP'
+    rel_val              ~ 'manner' | 'possessor' | 'op1' | 'quant' | 'source'
     new                  ~ 'NEW'
     node                 ~ 'echild' | 'no-echild' | 'esibling'
     dot                  ~ '.'
@@ -83,10 +120,18 @@ sub _build_dsl($) {
 __DSL__
 }
 
+sub concat($, @values) { join "", @values }
+sub append($, $v, $l) { [@$l, $v] }
+sub If($, $if, $cond, $cmd, $else) { [if => $cond, $cmd, $else] }
+sub empty($) { }
+sub list_def($, @l) { [grep defined, @l] }
+
+use Data::Dumper;
+
 sub parse($self, $input) {
     return ${ $self->grammar->parse(\$input, __PACKAGE__) } unless $self->debug;
 
-    warn "<<<$input>>>";
+    warn "<<<$input>>>" if $self->debug;
     my $recce = 'Marpa::R2::Scanless::R'->new({
         grammar            => $self->grammar,
         semantics_package  => __PACKAGE__,
@@ -95,7 +140,7 @@ sub parse($self, $input) {
 
     my $value;
     if (eval { $recce->read(\$input); $value = $recce->value }) {
-        use Data::Dumper; warn Dumper $value;
+        warn Dumper $value if $self->debug;
         return $$value
 
     } else {
@@ -103,11 +148,14 @@ sub parse($self, $input) {
         my ($from, $length) = $recce->last_completed('Value');
         my $last;
         $last = $recce->substring($from, $length) if defined $from;
-        use Data::Dumper; 
-        die "Expected: @{ $recce->terminals_expected }\n$from:$last\n", $eval_error, Dumper $recce->value;
+        push @{ $self->errors }, "Expected: @{ $recce->terminals_expected }\n$from:$last\n" . $eval_error . Dumper $recce->value;
+        return \ []
     }
 }
 
+sub die_if_errors($self) {
+    die @{ $self->errors } if @{ $self->errors };
+}
 
 sub _build_grammar($self) {
     my $dsl = $self->dsl;

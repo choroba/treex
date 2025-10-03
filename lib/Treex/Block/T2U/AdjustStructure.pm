@@ -42,7 +42,7 @@ sub process_unode($self, $unode, $) {
         return if 'DELETED' eq $value;
     }
 
-    if ('#Forn' eq $unode->concept) {
+    if ('#Forn' eq ($unode->concept // "")) {
         if ('name' eq $unode->functor) {
             $self->translate_forn($unode, 'name', 1);
         } else {

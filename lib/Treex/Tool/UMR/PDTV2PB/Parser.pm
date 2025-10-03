@@ -3,6 +3,8 @@ use utf8;
 use Moose;
 use experimental qw( signatures );
 
+use Treex::Tool::UMR::PDTV2PB::Transformation;
+
 use Marpa::R2;
 use namespace::clean;
 
@@ -20,13 +22,15 @@ sub _build_dsl($) {
     :default           ::= action => [name,values]
     Rule               ::= Commands  action => ::first
     Commands           ::= Value                          action => ::first
-                         | Value (MaybeComma) Commands    action => [values]
+                         | Value (MaybeComma) Commands    action => list
                          | Command                        action => ::first
-                         | Command (MaybeComma) Commands  action => [values]
+                         | Command (MaybeComma) Commands  action => list
     MaybeComma         ::= comma
     MaybeComma         ::= 
-    Value              ::= Relation | Concept | functor
-    Command            ::= (exclam) No_args | (exclam) Args | If | DeleteRoot
+    Value              ::= Relation | functor
+                         | Concept                         action => ::first
+    Command            ::= (exclam) No_args action => ::first
+                         | (exclam) Args | If | DeleteRoot
     DeleteRoot         ::= (lpar) (exclam) delete (comma) functor (rpar)
     If                 ::= if (lpar) Conditions (rpar) (lpar) Commands (rpar) (else) Else  action => If
     Else               ::= (lpar) Commands (rpar)
@@ -49,7 +53,7 @@ sub _build_dsl($) {
                          | functor (comma) Functors action => append
     Relation           ::= arg num  action => concat
                          | rel_val  action => ::first
-    Concept            ::= Cprefixes Csuffix action => concat
+    Concept            ::= Cprefixes Csuffix action => concept_template
                          | concept           action => ::first
     Csuffix            ::= csuffix           action => ::first
                          | new dash csuffix  action => concat
@@ -57,7 +61,7 @@ sub _build_dsl($) {
                          | cprefix dash functor       action => concat
                          | cprefix dash functor dash  action => concat
                          | cprefix dash               action => concat
-    No_args            ::= delete  action => ::first
+    No_args            ::= delete  action => Delete
                          | root    action => ::first
                          | error   action => ::first
                          | ok      action => ::first
@@ -74,8 +78,6 @@ sub _build_dsl($) {
     Set_tlemma         ::= (tlemma lpar) Concept (rpar)
     Set_relation       ::= (relation lpar) Relation (rpar)
     Add                ::= (add lpar) node (dot) Set_tlemma (comma) Set_relation (rpar)
-    Args_list          ::= Args  action => [values]
-                         | Args (comma) Args_list  action => append
     Move               ::= move (lpar) node (colon) Relation (comma) Relation (rpar) action => [values]
 
     :discard             ~ whitespace
@@ -105,13 +107,13 @@ sub _build_dsl($) {
     ok                   ~ 'ok'
     else                 ~ 'else'
     relation             ~ 'functor'
-    macro                ~ 'n.denot-v' | 'n.denot' | 'noun,verb' | 'n.pron.indef' | 'lemma-not-všechen' | 'n-not-adj' | 'noun' | 'not-adj'
+    macro                ~ 'n.denot-v' | 'n.denot' | 'noun,verb' | 'n.pron.indef' | 'lemma-not-všechen' | 'n-not-adj' | 'noun' | 'not-adj' | 'verb' | 'form:s+7'
     dollar               ~ '$'
     colon                ~ ':'
     if                   ~ 'if'
     dash                 ~ '-'
     comma                ~ ','
-    functor              ~ 'ACT' | 'PAT' | 'EFF' | 'ADDR' | 'ORIG' | 'CPHR' | 'DPHR' | 'MANN' | 'BEN' | 'RSTR' | 'LOC' | 'DIR1' | 'REG' | 'AIM' | 'ACMP'
+    functor              ~ 'ACT' | 'PAT' | 'EFF' | 'ADDR' | 'ORIG' | 'CPHR' | 'DPHR' | 'MANN' | 'BEN' | 'RSTR' | 'LOC' | 'DIR1' | 'REG' | 'AIM' | 'ACMP' | 'CAUS'
     rel_val              ~ 'manner' | 'possessor' | 'op1' | 'quant' | 'source'
     new                  ~ 'NEW'
     node                 ~ 'echild' | 'no-echild' | 'esibling'
@@ -125,6 +127,19 @@ sub append($, $v, $l) { [@$l, $v] }
 sub If($, $if, $cond, $cmd, $else) { [if => $cond, $cmd, $else] }
 sub empty($) { }
 sub list_def($, @l) { [grep defined, @l] }
+
+sub list($, @l) {
+    'Treex::Tool::UMR::PDTV2PB::Transformation::List'->new({list => \@l})
+}
+
+sub concept_template($obj, @values) {
+    'Treex::Tool::UMR::PDTV2PB::Transformation::Concept::Template'->new(
+        {template => concat($obj, @values)})
+}
+
+sub Delete($obj, $) {
+    'Treex::Tool::UMR::PDTV2PB::Transformation::Delete'->new
+}
 
 use Data::Dumper;
 

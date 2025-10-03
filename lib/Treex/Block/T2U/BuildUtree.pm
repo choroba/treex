@@ -1,6 +1,7 @@
 # -*- encoding: utf-8 -*-
 package Treex::Block::T2U::BuildUtree;
 use Moose;
+use Scalar::Util qw{ blessed };
 use Treex::Core::Common;
 use Treex::Tool::UMR::Common qw{ entity2person is_possesive };
 use namespace::autoclean;
@@ -63,23 +64,35 @@ sub translate_val_frame
     my ($self, $tnode, $unode) = @_;
     my @eps = $tnode->get_eparents;
     my %functor;
-  EPARENT:
+    my $rule;
     for my $ep (@eps) {
         next unless $ep->val_frame_rf;
 
         if (my $valframe_id = $ep->val_frame_rf) {
             $valframe_id =~ s/^.*#//;
             if (my $pb = $self->mapping->{$valframe_id}{ $tnode->functor }) {
-                $pb =~ s/^\?//;
-                ++$functor{$pb};
-                next EPARENT
+                if (ref $pb) {
+                    ++$functor{RULE};
+                    $rule = $pb;
+                } else {
+                    $pb =~ s/^\?//;
+                    ++$functor{$pb};
+                }
             }
         }
     }
     my $was_successful;
+    if (($functor{RULE} // 0) > 1) {
+        die 'Too many rules';
+    }
     if (1 == keys %functor) {
-        $self->set_relation($unode, (keys %functor)[0], $tnode);
-        $was_successful = 1;
+        if (exists $functor{RULE}) {
+            $self->set_relation($unode, $rule, $tnode);
+            $was_successful = 1;
+        } else {
+            $self->set_relation($unode, (keys %functor)[0], $tnode);
+            $was_successful = 1;
+        }
     } else {
         log_warn("More than one functor: " . join ' ', keys %functor)
             if keys %functor > 1;
@@ -104,31 +117,14 @@ sub apply_rule
     my ($self, $unode, $tnode, $mapping) = @_;
     my $rule = $mapping->{rule};
 
-    if ($rule =~ /^\[([-[:lower:]]+-\d+)(?:\]|\s+!(.+))/) {
-        my ($concept, $rule) = @{^CAPTURE};
-        $unode->set_concept($concept);
-        if ($rule) {
-            $self->rule_set_attr($unode, $rule) or warn "RULE UNKNOWN: $rule";
-        }
+    use Data::Dumper; warn Dumper APPLY => $rule;
 
-    } elsif ($rule =~ /^\[([^-]+)-([A-Z]+)-(\d{3})(?s:$| !(.+))/) {
-        my ($prefix, $var, $num, $rest) = @{^CAPTURE};
-        if (my @tnodes = grep $var eq $_->functor, $tnode->get_echildren) {
-            $unode->set_concept(join '-',
-                                $prefix, $tnodes[0]->t_lemma, $num);
-            warn join ' ', 'TOO MANY LEMMAS', $rule, $tnode->id,
-                           $tnode->val_frame_rf,
-                           map $_->t_lemma, @tnodes
-                if @tnodes > 1;
-
-            $self->rule_set_attr($unode, $rest) or warn "RULE UNKNOWN: $rule"
-                if $rest;
-        } else {
-            warn "NO LEMMAS ", $tnode->id;
-            $unode->set_concept('?' . $mapping->{umr_id});
-        }
+    if (blessed($rule)
+        && $rule->isa('Treex::Tool::UMR::PDTV2PB::Transformation')
+    ) {
+        $rule->run($unode, $tnode, $self);
     } else {
-        warn "RULE $rule";
+        use Data::Dumper; warn 'UNKNOWN RULE ', Dumper $rule;
     }
 }
 

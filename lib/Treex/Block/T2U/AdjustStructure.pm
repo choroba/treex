@@ -43,6 +43,8 @@ sub process_unode($self, $unode, $) {
     ) {
         my $value = $unode->functor->run($unode, $tnode, $self);
         return if 'DELETED' eq $value;
+    } elsif (ref $unode->functor) {
+        $unode->set_functor('!!UNIPMLEMENTED_RULE');
     }
 
     if ('#Forn' eq ($unode->concept // "")) {

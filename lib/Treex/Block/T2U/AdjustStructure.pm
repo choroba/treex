@@ -53,8 +53,6 @@ sub process_unode($self, $unode, $) {
     $self->translate_compl($unode, $tnode)
         if 'COMPL' eq $tnode->functor;
     $self->adjust_coap($unode, $tnode) if 'coap' eq $tnode->nodetype;
-    $self->remove_double_edge($unode, $1, $tnode)
-        if $unode->functor =~ /^(.+)-of$/;
     $self->negate_sibling($unode, $tnode)
         if 'RHEM' eq $tnode->functor && $tnode->t_lemma =~ /^$negation$/
         || 'CM' eq $tnode->functor && $tnode->t_lemma =~ /^(?:#Neg|$negation)$/;
@@ -195,6 +193,7 @@ sub safe_remove($self, $node, $parent) {
 
 after process_document => sub($self, $document) {
     $self->fix_coref($document);
+    $self->remove_double_edge($document);
     $self->rename_octothorpes($document);
 };
 
@@ -303,16 +302,36 @@ sub adjust_coap($self, $unode, $tnode) {
 }
 
 # TODO: tnode not needed?
-sub remove_double_edge($self, $unode, $functor, $tnode) {
-    my @unodes = expand_coord($unode);
-    warn "Expand: ", join ' ', map $_->concept, @unodes;
-    for my $uexp (map $_->children, @unodes) {
-        warn "Try $uexp->{concept}";
-        if ($uexp->functor eq $functor) {
-            if ('ref' eq $uexp->nodetype) {
-                $uexp->remove;
-            } else {
-                warn "Double $functor $tnode->{id} $uexp->{concept}";
+sub remove_double_edge($self, $document) {
+    for my $tree ($document->trees) {
+        for my $unode ($tree->descendants) {
+            next unless $unode->isa('Treex::Core::Node::U');
+
+            if (($unode->functor // "") =~ /^(.+)-of$/) {
+                my $functor = $1;
+                my @unodes = expand_coord($unode);
+                warn "Expand: ", join ' ', map $_->concept, @unodes;
+                for my $uexp (map $_->children, @unodes) {
+                    warn "Try $uexp->{concept}";
+                    if ($uexp->functor eq $functor) {
+                        if ('ref' eq $uexp->nodetype) {
+                            $uexp->remove;
+                        } else {
+                            warn "Double $functor $uexp->{concept}";
+                        }
+                    }
+                }
+            }
+            if (my $p = $unode->parent) {
+                my @refchildren = grep 'ref' eq ($_->nodetype // ""),
+                                  $p->children;
+                for my $refchild (@refchildren) {
+                    warn('RCH[', $refchild->{'same_as.rf'}, ',', $refchild->functor,
+                        '] CH[', $unode->{id}, ', ', $unode->functor,']',
+                        '] P[', $p->{id}, ', ', $p->functor,']'),
+                    $refchild->remove if $refchild->attr('same_as.rf') eq $unode->{id}
+                                      && $refchild->functor eq $unode->functor;
+                }
             }
         }
     }

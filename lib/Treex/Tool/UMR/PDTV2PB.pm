@@ -16,7 +16,7 @@ use namespace::clean;
 
 has vallex  => (is => 'ro', isa => Str, init_arg => undef, writer => '_set_vallex');
 has csv     => (is => 'ro', isa => Str, init_arg => undef, writer => '_set_csv');
-has mapping => (is => 'ro', lazy => 1, isa => HashRef[HashRef[Str]],
+has mapping => (is => 'ro', lazy => 1,
                 init_arg => undef, builder => '_build_mapping',
                 writer => '_set_mapping');
 has parser  => (is => 'ro', lazy => 1,
@@ -105,7 +105,7 @@ sub _build_mapping($self) {
                          . " $relation/$mapping{$current_id}{$functor}!")
                     if exists $mapping{$current_id}{$functor}
                     && $mapping{$current_id}{$functor} ne $relation;
-                $mapping{$current_id}{$functor} = $relation;
+                $mapping{$current_id}{$functor} //= $relation;
             }
         }
     }
@@ -119,6 +119,7 @@ sub _build_mapping($self) {
         }
     }
     $self->parser->die_if_errors;
+    use Data::Dumper; warn Dumper \%mapping;
     return \%mapping
 }
 

@@ -6,6 +6,7 @@ use Moose;
 use Treex::Core::Common;
 use Treex::Tool::UMR::Common qw{ is_coord expand_coord };
 use List::Util qw{ max };
+use Scalar::Util qw{ blessed };
 
 use namespace::autoclean;
 use experimental qw( signatures );
@@ -34,24 +35,14 @@ sub process_unode($self, $unode, $) {
         return
     }
 
+    my $tnode = $unode->get_tnode;
+
     # Frame transformations.
-    if ($unode->functor =~ /^\[!delete(?:\]$| (.+)\])/s) {
-        my $remaining = $1;
-        if ($remaining =~ /^if\(functor:([A-Z]+)\)\((ARG\d)\)/) {
-            my ($tfunc, $ufunc) = @{^CAPTURE};
-            for my $ch ($unode->children) {
-                my $tch = $ch->get_tnode;
-                $ch->set_functor($ufunc) if $tch->functor eq $tfunc;
-                warn "SETTING $ch->{id} $tch->{id} $tfunc $ufunc";
-            }
-        } else {
-            warn "REMAINING: $remaining";
-        }
-        for my $ch ($unode->children) {
-            $ch->set_parent($unode->parent);
-        }
-        $self->safe_remove($unode, $unode->parent);
-        return
+    if (blessed($unode->functor)
+        && $unode->functor->isa('Treex::Tool::UMR::PDTV2PB::Transformation')
+    ) {
+        my $value = $unode->functor->run($unode, $tnode, $self);
+        return if 'DELETED' eq $value;
     }
 
     if ('#Forn' eq ($unode->concept // "")) {
@@ -70,7 +61,6 @@ sub process_unode($self, $unode, $) {
         }
     }
 
-    my $tnode = $unode->get_tnode;
     $self->translate_compl($unode, $tnode)
         if 'COMPL' eq $tnode->functor;
     $self->adjust_coap($unode, $tnode) if 'coap' eq $tnode->nodetype;

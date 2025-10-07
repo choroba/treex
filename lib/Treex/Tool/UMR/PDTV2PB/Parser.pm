@@ -107,13 +107,13 @@ sub _build_dsl($) {
     ok                   ~ 'ok'
     else                 ~ 'else'
     relation             ~ 'functor'
-    macro                ~ 'n.denot-v' | 'n.denot' | 'noun,verb' | 'n.pron.indef' | 'lemma-not-všechen' | 'n-not-adj' | 'noun' | 'not-adj' | 'verb' | 'form:s+7'
+    macro                ~ 'n.denot-v' | 'n.denot' | 'noun,verb' | 'n.pron.indef' | 'lemma-not-všechen' | 'n-not-adj' | 'noun' | 'not-adj' | 'verb' | 'form:s+7' | 'form:od+2'
     dollar               ~ '$'
     colon                ~ ':'
     if                   ~ 'if'
     dash                 ~ '-'
     comma                ~ ','
-    functor              ~ 'ACT' | 'PAT' | 'EFF' | 'ADDR' | 'ORIG' | 'CPHR' | 'DPHR' | 'MANN' | 'BEN' | 'RSTR' | 'LOC' | 'DIR1' | 'REG' | 'AIM' | 'ACMP' | 'CAUS'
+    functor              ~ 'ACT' | 'PAT' | 'EFF' | 'ADDR' | 'ORIG' | 'CPHR' | 'DPHR' | 'MANN' | 'BEN' | 'RSTR' | 'LOC' | 'DIR1' | 'REG' | 'AIM' | 'ACMP' | 'CAUS' | 'EXT'
     rel_val              ~ 'manner' | 'possessor' | 'op1' | 'quant' | 'source'
     new                  ~ 'NEW'
     node                 ~ 'echild' | 'no-echild' | 'esibling'
@@ -163,7 +163,7 @@ sub parse($self, $input) {
         my ($from, $length) = $recce->last_completed('Value');
         my $last;
         $last = $recce->substring($from, $length) if defined $from;
-        push @{ $self->errors }, "Expected: @{ $recce->terminals_expected }\n$from:$last\n" . $eval_error . Dumper $recce->value;
+        push @{ $self->errors }, "<<$input>>\nExpected: @{ $recce->terminals_expected }\n$from:$last\n" . $eval_error . Dumper $recce->value;
         return \ []
     }
 }

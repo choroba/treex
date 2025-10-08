@@ -9,7 +9,7 @@ use Scalar::Util qw{ blessed };
 use Treex::Core::BundleZone;
 
 use Test2::V0;
-plan(8);
+plan(9);
 
 my $p = 'Treex::Tool::UMR::PDTV2PB::Parser'->new;
 ok $p, 'Instantiates';
@@ -23,7 +23,8 @@ ok blessed($delete)
     'Parses delete';
 
 {   my $template = $p->parse('mít-CPHR-057');
-    is $template->{template}, 'mít-CPHR-057', 'Parses a template';
+    is $template->{template}->run(undef, undef, undef), 'mít-CPHR-057',
+        'Parses a template';
 }
 
 {   my $error = $p->parse('!error');
@@ -42,4 +43,12 @@ ok blessed($delete)
     is $u,
         hash { field(modal_strength => 'neutral-negative'); end() },
         'Setter';
+}
+
+{   my $cond = $p->parse('if(functor:PAT)(ARG1)else(ARG2)');
+    sub My::T::functor { 'PAT' }
+    my $t = bless {}, 'My::T';
+    my $value = $cond->run(undef, $t, undef);
+    is $value, 'ARG1', 'Condition';
+    # TODO: Use mocking, test else.
 }

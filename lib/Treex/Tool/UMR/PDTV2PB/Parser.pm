@@ -30,9 +30,10 @@ sub _build_dsl($) {
     Value              ::= Relation                        action => ::first
                          | functor                         action => ::first
                          | Concept                         action => ::first
-    Command            ::= (exclam) No_args action => ::first
+    Command            ::= (exclam) No_args                action => ::first
                          | (exclam) Args                   action => ::first
-                         | If | DeleteRoot
+                         | If                              action => ::first
+                         | DeleteRoot
     DeleteRoot         ::= (lpar) (exclam) delete (comma) functor (rpar)
     If                 ::= if (lpar) Conditions (rpar) (lpar) Commands (rpar) (else) Else  action => If
     Else               ::= (lpar) Commands (rpar)
@@ -40,8 +41,8 @@ sub _build_dsl($) {
                          | (exclam) No_args
     Conditions         ::= Condition                     action => [values]
                          | Condition (comma) Conditions  action => append
-    Condition          ::= Maybe_node attr (colon) Lemmas   action => list_def
-                         | Maybe_node attr (colon) Functors  action => list_def
+    Condition          ::= Maybe_node tlemma (colon) Lemmas   action => condition
+                         | Maybe_node fattr (colon) Functors  action => condition
                          | Macro
     Macro              ::= dollar macro
     Maybe_node         ::= node (dot)  action => ::first
@@ -55,8 +56,8 @@ sub _build_dsl($) {
     Relation           ::= arg num  action => concat
                          | rel_val  action => ::first
     Concept            ::= Cprefixes Csuffix action => concept_template
-                         | concept           action => ::first
-    Csuffix            ::= csuffix           action => ::first
+                         | concept           action => concat
+    Csuffix            ::= csuffix           action => concat
                          | new dash csuffix  action => concat
     Cprefixes          ::= cprefix dash Cprefixes     action => concat
                          | cprefix dash functor       action => concat
@@ -99,7 +100,7 @@ sub _build_dsl($) {
     modal_strength_value ~ 'neutral-affirmative' | 'partial-affirmative' | 'neutral-negative'
     aspect_value         ~ 'habitual'
     concept              ~ 'concept' | 'thing' | 'person' | 'relative-position' | 'umr-unknown'
-    attr                 ~ 'functor' | 't_lemma'
+    fattr                ~ 'functor'
     tlemma               ~ 't_lemma'
     root                 ~ 'root'
     add                  ~ 'add'
@@ -123,9 +124,7 @@ sub _build_dsl($) {
 __DSL__
 }
 
-sub concat($, @values) { join "", @values }
 sub append($, $v, $l) { [@$l, $v] }
-sub If($, $if, $cond, $cmd, $else) { [if => $cond, $cmd, $else] }
 sub empty($) { }
 sub list_def($, @l) { [grep defined, @l] }
 
@@ -135,7 +134,7 @@ sub list($, @l) {
 
 sub concept_template($obj, @values) {
     'Treex::Tool::UMR::PDTV2PB::Transformation::Concept::Template'->new(
-        {template => concat($obj, @values)})
+        {template => concat($obj, map ref {} eq ref ? $_->{value} : $_, @values)})
 }
 
 sub Delete($obj, $) {
@@ -152,6 +151,24 @@ sub modal_strength($, $value) {
          value => $value})
 }
 
+sub If($, $if, $cond, $cmd, $else) {
+    'Treex::Tool::UMR::PDTV2PB::Transformation::If'->new({cond => $cond,
+                                                          then => $cmd,
+                                                          else => $else})
+}
+
+sub condition($, $node, $attr, $values) {
+    'Treex::Tool::UMR::PDTV2PB::Transformation::Condition'->new(
+        {node => $node,
+         attr => $attr,
+         values => $values})
+}
+
+sub concat($, @values) {
+    'Treex::Tool::UMR::PDTV2PB::Transformation::String'->new({
+        value => [map ref ? @{ $_->{value} } : $_, @values]})
+}
+
 use Data::Dumper;
 
 sub parse($self, $input) {
@@ -166,7 +183,7 @@ sub parse($self, $input) {
 
     my $value;
     if (eval { $recce->read(\$input); $value = $recce->value }) {
-        warn Dumper $value if $self->debug;
+        warn Dumper PARSED => $value if $self->debug;
         return $$value
 
     } else {

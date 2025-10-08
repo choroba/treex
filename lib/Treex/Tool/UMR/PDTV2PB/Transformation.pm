@@ -6,7 +6,6 @@ Treex::Tool::UMR::PDTV2PB::Transformation
 
 =cut
 
-
 use warnings;
 use strict;
 use experimental qw( signatures );
@@ -15,12 +14,22 @@ sub new($class, $struct = {}) {
     bless $struct, $class
 }
 
+sub run($self, $unode, $tnode, $) {
+    return $self->{value}
+}
+
+package Treex::Tool::UMR::PDTV2PB::Transformation::String;
+use parent -norequire => 'Treex::Tool::UMR::PDTV2PB::Transformation';
+
+sub run($self, $unode, $tnode, $) {
+    return join "", @{ $self->{value} }
+}
 
 package Treex::Tool::UMR::PDTV2PB::Transformation::Concept::Template;
 use parent -norequire => 'Treex::Tool::UMR::PDTV2PB::Transformation';
 
-sub run($self, $unode, $tnode, $) {
-    my $template = $self->{template};
+sub run($self, $unode, $tnode, $builder) {
+    my $template = $self->{template}->run($unode, $tnode, $builder);
     my ($functor) = $template =~ /([A-Z]+[0-9]?)/;
     if (! $functor) {
         $unode->set_concept($template);
@@ -68,6 +77,25 @@ use parent -norequire => 'Treex::Tool::UMR::PDTV2PB::Transformation';
 
 sub run($self, $unode, $tnode, $) {
     die 'Valency transformation error: ' . $unode->id . '/' . $tnode->id;
+}
+
+package Treex::Tool::UMR::PDTV2PB::Transformation::If;
+use parent -norequire => 'Treex::Tool::UMR::PDTV2PB::Transformation';
+
+sub run($self, $unode, $tnode, $builder) {
+    for my $cond (@{ $self->{cond} }) {
+        return $self->{else}->run($unode, $tnode, $builder)
+            unless $cond->run($unode, $tnode, $builder);
+    }
+    return $self->{then}->run($unode, $tnode, $builder)
+}
+
+package Treex::Tool::UMR::PDTV2PB::Transformation::Condition;
+use parent -norequire => 'Treex::Tool::UMR::PDTV2PB::Transformation';
+
+sub run($self, $unode, $tnode, $builder) {
+    my $attr = $self->{attr};
+    return grep $tnode->$attr eq $_, @{ $self->{values} }
 }
 
 package Treex::Tool::UMR::PDTV2PB::Transformation::SetAttr;

@@ -9,7 +9,7 @@ use Scalar::Util qw{ blessed };
 use Treex::Core::BundleZone;
 
 use Test2::V0;
-plan(7);
+plan(8);
 
 my $p = 'Treex::Tool::UMR::PDTV2PB::Parser'->new;
 ok $p, 'Instantiates';
@@ -33,4 +33,13 @@ ok blessed($delete)
     my $t = bless {}, 'My::T';
     like dies { $error->run($u, $t, {}) },
         qr{Valency transformation error: u00/t00}, 'Error';
+}
+
+{   my $setter = $p->parse('!modal-strength(neutral-negative)');
+    sub My::U::set_modal_strength { $_[0]{modal_strength} = $_[1] }
+    my $u = bless {}, 'My::U';
+    $setter->run($u, undef, undef);
+    is $u,
+        hash { field(modal_strength => 'neutral-negative'); end() },
+        'Setter';
 }

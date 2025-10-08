@@ -40,7 +40,6 @@ sub _build_dsl($) {
     Conditions         ::= Condition                     action => [values]
                          | Condition (comma) Conditions  action => append
     Condition          ::= Maybe_node attr (colon) Lemmas   action => list_def
-                         | functor (colon) Lemmas           action => [values]
                          | Maybe_node attr (colon) Functors  action => list_def
                          | Macro
     Macro              ::= dollar macro

@@ -63,4 +63,11 @@ sub run($self, $unode, $tnode, $builder) {
     return
 }
 
+package Treex::Tool::UMR::PDTV2PB::Transformation::Error;
+use parent -norequire => 'Treex::Tool::UMR::PDTV2PB::Transformation';
+
+sub run($self, $unode, $tnode, $) {
+    die 'Valency transformation error: ' . $unode->id . '/' . $tnode->id;
+}
+
 __PACKAGE__

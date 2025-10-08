@@ -8,8 +8,9 @@ use Treex::Tool::UMR::PDTV2PB::Parser;
 use Scalar::Util qw{ blessed };
 use Treex::Core::BundleZone;
 
+use Test::MockObject;
 use Test2::V0;
-plan(9);
+plan(10);
 
 my $p = 'Treex::Tool::UMR::PDTV2PB::Parser'->new;
 ok $p, 'Instantiates';
@@ -28,17 +29,17 @@ ok blessed($delete)
 }
 
 {   my $error = $p->parse('!error');
-    sub My::U::id { 'u00' }
-    sub My::T::id { 't00' }
-    my $u = bless {}, 'My::U';
-    my $t = bless {}, 'My::T';
-    like dies { $error->run($u, $t, {}) },
+    my $u = 'Test::MockObject'->new;
+    $u->mock(id => sub { 'u00' });
+    my $t = 'Test::MockObject'->new;
+    $t->mock(id => sub { 't00' });
+    like dies { $error->run($u, $t, undef) },
         qr{Valency transformation error: u00/t00}, 'Error';
 }
 
 {   my $setter = $p->parse('!modal-strength(neutral-negative)');
-    sub My::U::set_modal_strength { $_[0]{modal_strength} = $_[1] }
-    my $u = bless {}, 'My::U';
+    my $u = 'Test::MockObject'->new;
+    $u->mock(set_modal_strength => sub { $_[0]{modal_strength} = $_[1] });
     $setter->run($u, undef, undef);
     is $u,
         hash { field(modal_strength => 'neutral-negative'); end() },
@@ -46,9 +47,12 @@ ok blessed($delete)
 }
 
 {   my $cond = $p->parse('if(functor:PAT)(ARG1)else(ARG2)');
-    sub My::T::functor { 'PAT' }
-    my $t = bless {}, 'My::T';
+    my $t = 'Test::MockObject'->new;
+    $t->mock(functor => sub { 'PAT' });
     my $value = $cond->run(undef, $t, undef);
-    is $value, 'ARG1', 'Condition';
-    # TODO: Use mocking, test else.
+    is $value, 'ARG1', 'Condition Then';
+
+    $t->mock(functor => sub { 'ADDR' });
+    my $value = $cond->run(undef, $t, undef);
+    is $value, 'ARG2', 'Condition Else';
 }

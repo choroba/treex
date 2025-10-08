@@ -70,4 +70,13 @@ sub run($self, $unode, $tnode, $) {
     die 'Valency transformation error: ' . $unode->id . '/' . $tnode->id;
 }
 
+package Treex::Tool::UMR::PDTV2PB::Transformation::SetAttr;
+use parent -norequire => 'Treex::Tool::UMR::PDTV2PB::Transformation';
+
+sub run($self, $unode, $tnode, $builder) {
+    my $setter = 'set_' . $self->{attr};
+    $unode->$setter($self->{value});
+    return
+}
+
 __PACKAGE__

@@ -9,7 +9,7 @@ use Scalar::Util qw{ blessed };
 use Treex::Core::BundleZone;
 
 use Test2::V0;
-plan(6);
+plan(7);
 
 my $p = 'Treex::Tool::UMR::PDTV2PB::Parser'->new;
 ok $p, 'Instantiates';
@@ -22,5 +22,15 @@ ok blessed($delete)
     && $delete->isa('Treex::Tool::UMR::PDTV2PB::Transformation::Delete'),
     'Parses delete';
 
-my $template = $p->parse('mít-CPHR-057');
-is $template->{template}, 'mít-CPHR-057', 'Parses a template';
+{   my $template = $p->parse('mít-CPHR-057');
+    is $template->{template}, 'mít-CPHR-057', 'Parses a template';
+}
+
+{   my $error = $p->parse('!error');
+    sub My::U::id { 'u00' }
+    sub My::T::id { 't00' }
+    my $u = bless {}, 'My::U';
+    my $t = bless {}, 'My::T';
+    like dies { $error->run($u, $t, {}) },
+        qr{Valency transformation error: u00/t00}, 'Error';
+}

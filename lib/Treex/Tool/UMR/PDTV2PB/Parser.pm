@@ -27,7 +27,8 @@ sub _build_dsl($) {
                          | Command (MaybeComma) Commands  action => list
     MaybeComma         ::= comma
     MaybeComma         ::= 
-    Value              ::= Relation | functor
+    Value              ::= Relation                        action => ::first
+                         | functor                         action => ::first
                          | Concept                         action => ::first
     Command            ::= (exclam) No_args action => ::first
                          | (exclam) Args | If | DeleteRoot
@@ -63,7 +64,7 @@ sub _build_dsl($) {
                          | cprefix dash               action => concat
     No_args            ::= delete  action => Delete
                          | root    action => ::first
-                         | error   action => ::first
+                         | error   action => error
                          | ok      action => ::first
     Args               ::= Set_modal_strength  action => ::first
                          | Set_aspect          action => ::first
@@ -139,6 +140,10 @@ sub concept_template($obj, @values) {
 
 sub Delete($obj, $) {
     'Treex::Tool::UMR::PDTV2PB::Transformation::Delete'->new
+}
+
+sub error($obj, $) {
+    'Treex::Tool::UMR::PDTV2PB::Transformation::Error'->new
 }
 
 use Data::Dumper;

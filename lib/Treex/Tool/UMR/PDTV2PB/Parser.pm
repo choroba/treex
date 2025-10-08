@@ -36,7 +36,7 @@ sub _build_dsl($) {
                          | DeleteRoot
     DeleteRoot         ::= (lpar) (exclam) delete (comma) functor (rpar)
     If                 ::= if (lpar) Conditions (rpar) (lpar) Commands (rpar) (else) Else  action => If
-    Else               ::= (lpar) Commands (rpar)
+    Else               ::= (lpar) Commands (rpar)          action => ::first
                          | If
                          | (exclam) No_args
     Conditions         ::= Condition                     action => [values]

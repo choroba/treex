@@ -28,8 +28,8 @@ sub run($self, $unode, $tnode, $) {
 package Treex::Tool::UMR::PDTV2PB::Transformation::Concept::Template;
 use parent -norequire => 'Treex::Tool::UMR::PDTV2PB::Transformation';
 
-sub run($self, $unode, $tnode, $builder) {
-    my $template = $self->{template}->run($unode, $tnode, $builder);
+sub run($self, $unode, $tnode, $block) {
+    my $template = $self->{template}->run($unode, $tnode, $block);
     my ($functor) = $template =~ /([A-Z]+[0-9]?)/;
     if (! $functor) {
         $unode->set_concept($template);
@@ -47,13 +47,12 @@ sub run($self, $unode, $tnode, $builder) {
 package Treex::Tool::UMR::PDTV2PB::Transformation::Delete;
 use parent -norequire => 'Treex::Tool::UMR::PDTV2PB::Transformation';
 
-sub run($self, $unode, $tnode, $builder) {
+sub run($self, $unode, $tnode, $block) {
     warn "DELETING";
     for my $ch ($unode->children) {
         $ch->set_parent($unode->parent);
-        # TODO: New parent has the same arrow to me as the new edge.
     }
-    $builder->safe_remove($unode, $unode->parent);
+    $block->safe_remove($unode, $unode->parent);
     return
 }
 
@@ -61,10 +60,10 @@ package Treex::Tool::UMR::PDTV2PB::Transformation::List;
 use parent -norequire => 'Treex::Tool::UMR::PDTV2PB::Transformation';
 use Scalar::Util qw{ blessed };
 
-sub run($self, $unode, $tnode, $builder) {
+sub run($self, $unode, $tnode, $block) {
     for my $command (@{ $self->{list} }) {
         if (blessed($command)) {
-            $command->run($unode, $tnode, $builder);
+            $command->run($unode, $tnode, $block);
         } else {
             use Data::Dumper; warn Dumper COMMAND => $command;
         }
@@ -82,18 +81,18 @@ sub run($self, $unode, $tnode, $) {
 package Treex::Tool::UMR::PDTV2PB::Transformation::If;
 use parent -norequire => 'Treex::Tool::UMR::PDTV2PB::Transformation';
 
-sub run($self, $unode, $tnode, $builder) {
+sub run($self, $unode, $tnode, $block) {
     for my $cond (@{ $self->{cond} }) {
-        return $self->{else}->run($unode, $tnode, $builder)
-            unless $cond->run($unode, $tnode, $builder);
+        return $self->{else}->run($unode, $tnode, $block)
+            unless $cond->run($unode, $tnode, $block);
     }
-    return $self->{then}->run($unode, $tnode, $builder)
+    return $self->{then}->run($unode, $tnode, $block)
 }
 
 package Treex::Tool::UMR::PDTV2PB::Transformation::Condition;
 use parent -norequire => 'Treex::Tool::UMR::PDTV2PB::Transformation';
 
-sub run($self, $unode, $tnode, $builder) {
+sub run($self, $unode, $tnode, $) {
     my $attr = $self->{attr};
     return grep $tnode->$attr eq $_, @{ $self->{values} }
 }
@@ -101,7 +100,7 @@ sub run($self, $unode, $tnode, $builder) {
 package Treex::Tool::UMR::PDTV2PB::Transformation::SetAttr;
 use parent -norequire => 'Treex::Tool::UMR::PDTV2PB::Transformation';
 
-sub run($self, $unode, $tnode, $builder) {
+sub run($self, $unode, $tnode, $) {
     my $setter = 'set_' . $self->{attr};
     $unode->$setter($self->{value});
     return

@@ -128,21 +128,6 @@ sub apply_rule
     }
 }
 
-{   my %ATTR_MAP = ('modal-strength' => 'modal_strength',
-                    polarity         => 'polarity');
-    sub rule_set_attr
-    {
-        my ($self, $unode, $rule) = @_;
-        if ($rule =~ /^([-\w]+)\(([-\w]+)\)/) {
-            my ($attr, $value) = @{^CAPTURE};
-            $unode->set_attr($ATTR_MAP{$attr}, $value);
-            warn 'SET ', $ATTR_MAP{$attr} // 'UNKNOWN', " $value";
-            return 1
-        }
-        return
-    }
-}
-
 {   my %FUNCTOR_MAPPING = (
     ##### ROOT NODES ###########################
     # Only applies when not in the root position

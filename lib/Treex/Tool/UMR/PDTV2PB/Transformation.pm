@@ -61,14 +61,15 @@ use parent -norequire => 'Treex::Tool::UMR::PDTV2PB::Transformation';
 use Scalar::Util qw{ blessed };
 
 sub run($self, $unode, $tnode, $block) {
+    my @values;
     for my $command (@{ $self->{list} }) {
         if (blessed($command)) {
-            $command->run($unode, $tnode, $block);
+            push @values, $command->run($unode, $tnode, $block);
         } else {
             use Data::Dumper; warn Dumper COMMAND => $command;
         }
     }
-    return
+    return @values
 }
 
 package Treex::Tool::UMR::PDTV2PB::Transformation::Error;
@@ -76,6 +77,13 @@ use parent -norequire => 'Treex::Tool::UMR::PDTV2PB::Transformation';
 
 sub run($self, $unode, $tnode, $) {
     die 'Valency transformation error: ' . $unode->id . '/' . $tnode->id;
+}
+
+package Treex::Tool::UMR::PDTV2PB::Transformation::OK;
+use parent -norequire => 'Treex::Tool::UMR::PDTV2PB::Transformation';
+
+sub run($self, $unode, $tnode, $) {
+    return ""
 }
 
 package Treex::Tool::UMR::PDTV2PB::Transformation::If;
@@ -94,7 +102,18 @@ use parent -norequire => 'Treex::Tool::UMR::PDTV2PB::Transformation';
 
 sub run($self, $unode, $tnode, $) {
     my $attr = $self->{attr};
-    return grep $tnode->$attr eq $_, @{ $self->{values} }
+    if (! defined $self->{node}) {
+        return grep $tnode->$attr eq $_, @{ $self->{values} }
+    }
+    if ('echild' eq $self->{node}) {
+
+    }
+    if ('no-echild' eq $self->{node}) {
+
+    }
+    if ('esibling' eq $self->{node}) {
+
+    }
 }
 
 package Treex::Tool::UMR::PDTV2PB::Transformation::SetAttr;

@@ -39,10 +39,14 @@ sub _build_dsl($) {
     Else               ::= (lpar) Commands (rpar)          action => ::first
                          | If
                          | (exclam) No_args
-    Conditions         ::= Condition                     action => [values]
+    Conditions         ::= NodelessConditions Conditions action => [values]
+                         | Condition                     action => [values]
                          | Condition (comma) Conditions  action => append
-    Condition          ::= Maybe_node tlemma (colon) Lemmas   action => condition
-                         | Maybe_node fattr (colon) Functors  action => condition
+    NodelessConditions ::= NodelessCondition             action => [values]
+                         | NodelessCondition (comma) NodelessConditions action => append
+    NodelessCondition  ::= tlemma (colon) Lemmas   action => nodeless_condition
+                         | fattr (colon) Functors  action => nodeless_condition
+    Condition          ::= Maybe_node  NodelessCondition action => condition
                          | Macro
     Macro              ::= dollar macro
     Maybe_node         ::= node (dot)  action => ::first
@@ -53,7 +57,7 @@ sub _build_dsl($) {
                          | upper1 lemma  action => concat
     Functors           ::= functor  action => [values],
                          | functor (comma) Functors action => append
-    Relation           ::= arg num  action => concat
+    Relation           ::= arg arg_num  action => concat
                          | rel_val  action => ::first
     Concept            ::= Cprefixes Csuffix action => concept_template
                          | concept           action => concat
@@ -66,7 +70,7 @@ sub _build_dsl($) {
     No_args            ::= delete  action => Delete
                          | root    action => ::first
                          | error   action => error
-                         | ok      action => ::first
+                         | ok      action => ok
     Args               ::= Set_modal_strength  action => ::first
                          | Set_aspect          action => ::first
                          | Set_polarity        action => ::first
@@ -79,15 +83,15 @@ sub _build_dsl($) {
     Set_polarity       ::= (polarity lpar) dash (rpar)
     Set_tlemma         ::= (tlemma lpar) Concept (rpar)
     Set_relation       ::= (relation lpar) Relation (rpar)
-    Add                ::= (add lpar) node (dot) Set_tlemma (comma) Set_relation (rpar)
-    Move               ::= move (lpar) node (colon) Relation (comma) Relation (rpar) action => [values]
+    Add                ::= (add lpar) node_target (dot) Set_tlemma (comma) Set_relation (rpar)
+    Move               ::= move (lpar) node_target (colon) functor (comma) Relation (rpar) action => [values]
 
     :discard             ~ whitespace
     whitespace           ~ [\s]+
     lpar                 ~ '('
     rpar                 ~ ')'
     arg                  ~ 'ARG'
-    num                  ~ [0-9]
+    arg_num              ~ [0-9M]
     cprefix              ~ [[:lower:]]+
     csuffix              ~ [0-9]+
     upper1               ~ [[:upper:]]
@@ -119,6 +123,7 @@ sub _build_dsl($) {
     rel_val              ~ 'manner' | 'possessor' | 'op1' | 'quant' | 'source'
     new                  ~ 'NEW'
     node                 ~ 'echild' | 'no-echild' | 'esibling'
+    node_target          ~ 'echild' | 'esibling'
     dot                  ~ '.'
 
 __DSL__
@@ -145,6 +150,11 @@ sub error($obj, $) {
     'Treex::Tool::UMR::PDTV2PB::Transformation::Error'->new
 }
 
+sub ok($, $) {
+    'Treex::Tool::UMR::PDTV2PB::Transformation::OK'->new
+}
+
+
 sub modal_strength($, $value) {
     'Treex::Tool::UMR::PDTV2PB::Transformation::SetAttr'->new(
         {attr  => 'modal_strength',
@@ -157,11 +167,15 @@ sub If($, $if, $cond, $cmd, $else) {
                                                           else => $else})
 }
 
-sub condition($, $node, $attr, $values) {
+sub nodeless_condition($, $attr, $values) {
     'Treex::Tool::UMR::PDTV2PB::Transformation::Condition'->new(
-        {node => $node,
-         attr => $attr,
+        {attr => $attr,
          values => $values})
+}
+
+sub condition($, $node, $condition) {
+    'Treex::Tool::UMR::PDTV2PB::Transformation::Condition'->new(
+        {%$condition, node => $node})
 }
 
 sub concat($, @values) {

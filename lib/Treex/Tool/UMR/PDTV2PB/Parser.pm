@@ -109,7 +109,7 @@ sub _build_dsl($) {
     ok                   ~ 'ok'
     else                 ~ 'else'
     relation             ~ 'functor'
-    macro                ~ 'n.denot-v' | 'n.denot' | 'noun,verb' | 'n.pron.indef' | 'lemma-not-všechen' | 'n-not-adj' | 'noun' | 'not-adj' | 'verb' | 'form:s+7' | 'form:od+2'
+    macro                ~ 'n.denot-v' | 'n.denot' | 'noun,verb' | 'n.pron.indef' | 'lemma-not-všechen' | 'n-not-adj' | 'noun' | 'not-adj' | 'verb' | 'form:s+7' | 'form:od+2' | 'form:o+6'
     dollar               ~ '$'
     colon                ~ ':'
     if                   ~ 'if'

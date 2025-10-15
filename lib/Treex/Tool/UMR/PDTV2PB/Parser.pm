@@ -78,7 +78,8 @@ sub _build_dsl($) {
                          | Set_relation        action => ::first
                          | Add                 action => ::first
                          | Move                action => ::first
-    Set_modal_strength ::= (modal_strength lpar) modal_strength_value (rpar)  action => modal_strength
+    Set_modal_strength ::= (modal_strength lpar node dot fattr colon) functor (comma) modal_strength_value (rpar)  action => node_modal_strength
+                         | (modal_strength lpar) modal_strength_value (rpar)  action => modal_strength
     Set_aspect         ::= (aspect lpar) aspect_value (rpar)
     Set_polarity       ::= (polarity lpar) dash (rpar)
     Set_tlemma         ::= (tlemma lpar) Concept (rpar)
@@ -158,6 +159,13 @@ sub ok($, $) {
 sub modal_strength($, $value) {
     'Treex::Tool::UMR::PDTV2PB::Transformation::SetAttr'->new(
         {attr  => 'modal_strength',
+         value => $value})
+}
+
+sub node_modal_strength($, $functor, $value) {
+    'Treex::Tool::UMR::PDTV2PB::Transformation::SetAttr'->new(
+        {attr  => 'modal_strength',
+         node  => $functor,
          value => $value})
 }
 

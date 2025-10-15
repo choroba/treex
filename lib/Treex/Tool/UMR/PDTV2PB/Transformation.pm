@@ -121,7 +121,16 @@ use parent -norequire => 'Treex::Tool::UMR::PDTV2PB::Transformation';
 
 sub run($self, $unode, $tnode, $) {
     my $setter = 'set_' . $self->{attr};
-    $unode->$setter($self->{value});
+    my $node;
+    if (my $search_node = $self->{node}) {
+        # TODO: Implement properly!
+        ($node) = map $_->get_referencing_nodes('t.rf'),
+                  grep $_->functor eq $search_node,
+                  $tnode->get_echildren;
+    } else {
+        $node = $unode;
+    }
+    $node->$setter($self->{value});
     return
 }
 

@@ -10,7 +10,7 @@ use Treex::Core::BundleZone;
 
 use Test::MockObject;
 use Test2::V0;
-plan(10);
+plan(11);
 
 my $p = 'Treex::Tool::UMR::PDTV2PB::Parser'->new;
 ok $p, 'Instantiates';
@@ -44,6 +44,21 @@ ok blessed($delete)
     is $u,
         hash { field(modal_strength => 'neutral-negative'); end() },
         'Setter';
+}
+
+{   my $setter = $p->parse(
+        '!modal-strength(echild.functor:PAT,neutral-negative)');
+    my $t = 'Test::MockObject'->new;
+    my $tch = 'Test::MockObject'->new;
+    my $u = 'Test::MockObject'->new;
+    my $uch = 'Test::MockObject'->new;
+    my $modality;
+    $t->mock(get_echildren => sub { $tch });
+    $tch->mock(functor => sub { 'PAT' });
+    $tch->mock(get_referencing_nodes => sub { $uch });
+    $uch->mock(set_modal_strength => sub { $modality = $_[1] });
+    $setter->run($u, $t, undef);
+    is $modality, 'neutral-negative', 'node setter';
 }
 
 {   my $cond = $p->parse('if(functor:PAT)(ARG1)else(ARG2)');

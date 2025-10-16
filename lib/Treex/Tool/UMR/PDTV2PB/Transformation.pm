@@ -105,15 +105,27 @@ sub run($self, $unode, $tnode, $) {
     if (! defined $self->{node}) {
         return grep $tnode->$attr eq $_, @{ $self->{values} }
     }
-    if ('echild' eq $self->{node}) {
 
-    }
     if ('no-echild' eq $self->{node}) {
-
+        my @children = grep {
+            my $ch = $_;
+            grep $ch->$attr eq  $_, @{ $self->{values} }
+        } $tnode->get_echildren;
+        return ! @children
     }
-    if ('esibling' eq $self->{node}) {
 
+    my @candidates;
+    if ('echild' eq $self->{node}) {
+        @candidates = $tnode->get_echildren;
+    } elsif ('esibling' eq $self->{node}) {
+        @candidates = grep $_ ne $tnode,
+                      map $_->get_echildren,
+                      $tnode->get_eparents;
     }
+    return grep {
+        my $c = $_;
+        grep $c->$attr eq $_, @{ $self->{values} }
+    } @candidates
 }
 
 package Treex::Tool::UMR::PDTV2PB::Transformation::SetAttr;

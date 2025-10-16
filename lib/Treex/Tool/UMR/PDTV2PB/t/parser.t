@@ -10,7 +10,7 @@ use Treex::Core::BundleZone;
 
 use Test::MockObject;
 use Test2::V0;
-plan(11);
+plan(15);
 
 my $p = 'Treex::Tool::UMR::PDTV2PB::Parser'->new;
 ok $p, 'Instantiates';
@@ -68,6 +68,36 @@ ok blessed($delete)
     is $value, 'ARG1', 'Condition Then';
 
     $t->mock(functor => sub { 'ADDR' });
+    my $value2 = $cond->run(undef, $t, undef);
+    is $value2, 'ARG2', 'Condition Else';
+}
+
+{   my $cond = $p->parse('if(no-echild.functor:PAT)(ARG1)else(ARG2)');
+    my $t = 'Test::MockObject'->new;
+    my $tch = 'Test::MockObject'->new;
+    $t->mock(get_echildren => sub { $tch });
+    $tch->mock(functor => sub { 'PAT' });
     my $value = $cond->run(undef, $t, undef);
-    is $value, 'ARG2', 'Condition Else';
+    is $value, 'ARG2', 'no-echild false';
+
+    $tch->mock(functor => sub { 'ACT' });
+    my $value2 = $cond->run(undef, $t, undef);
+    is $value2, 'ARG1', 'no-echild true';
+
+}
+
+{   my $cond = $p->parse('if(esibling.functor:PAT)(ARG1)else(ARG2)');
+    my $t = 'Test::MockObject'->new;
+    my $tp = 'Test::MockObject'->new;
+    my $ts = 'Test::MockObject'->new;
+    $t->mock(get_eparents => sub { $tp });
+    $t->mock(functor => sub { 'PAT' });
+    $tp->mock(get_echildren => sub { $t, $ts });
+    $ts->mock(functor => sub { 'PAT' });
+    my $value = $cond->run(undef, $t, undef);
+    is $value, 'ARG1', 'esibling true';
+
+    $ts->mock(functor => sub { 'ACT' });
+    my $value2 = $cond->run(undef, $t, undef);
+    is $value2, 'ARG2', 'esibling false';
 }

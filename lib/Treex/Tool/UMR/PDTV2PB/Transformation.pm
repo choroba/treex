@@ -32,8 +32,7 @@ sub run($self, $unode, $tnode, $block) {
     my $template = $self->{template}->run($unode, $tnode, $block);
     my ($functor) = $template =~ /([A-Z]+[0-9]?)/;
     if (! $functor) {
-        $unode->set_concept($template);
-        return
+        return $template
     }
     my @ch = grep $_->functor eq $functor, $tnode->get_echildren;
     if (1 == @ch) {
@@ -129,9 +128,10 @@ sub run($self, $unode, $tnode, $) {
 }
 
 package Treex::Tool::UMR::PDTV2PB::Transformation::SetAttr;
+use Scalar::Util qw{ blessed };
 use parent -norequire => 'Treex::Tool::UMR::PDTV2PB::Transformation';
 
-sub run($self, $unode, $tnode, $) {
+sub run($self, $unode, $tnode, $block) {
     my $setter = 'set_' . $self->{attr};
     my $node;
     if (my $search_node = $self->{node}) {
@@ -142,7 +142,9 @@ sub run($self, $unode, $tnode, $) {
     } else {
         $node = $unode;
     }
-    $node->$setter($self->{value});
+    my $value = $self->{value};
+    $value = $value->run($unode, $tnode, $block) if blessed($value);
+    $node->$setter($value);
     return
 }
 

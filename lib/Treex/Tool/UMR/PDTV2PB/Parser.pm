@@ -80,10 +80,10 @@ sub _build_dsl($) {
                          | Move                action => ::first
     Set_modal_strength ::= (modal_strength lpar node dot fattr colon) functor (comma) modal_strength_value (rpar)  action => node_modal_strength
                          | (modal_strength lpar) modal_strength_value (rpar)  action => modal_strength
-    Set_aspect         ::= (aspect lpar) aspect_value (rpar)
-    Set_polarity       ::= (polarity lpar) dash (rpar)
-    Set_tlemma         ::= (tlemma lpar) Concept (rpar)
-    Set_relation       ::= (relation lpar) Relation (rpar)
+    Set_aspect         ::= (aspect lpar) aspect_value (rpar) action => aspect
+    Set_polarity       ::= (polarity lpar) dash (rpar)       action => polarity
+    Set_tlemma         ::= (tlemma lpar) Concept (rpar)      action => tlemma
+    Set_relation       ::= (relation lpar) Relation (rpar)   action => relation
     Add                ::= (add lpar) node_target (dot) Set_tlemma (comma) Set_relation (rpar)
     Move               ::= move (lpar) node_target (colon) functor (comma) Relation (rpar) action => [values]
 
@@ -155,6 +155,29 @@ sub ok($, $) {
     'Treex::Tool::UMR::PDTV2PB::Transformation::OK'->new
 }
 
+sub aspect($, $value) {
+    'Treex::Tool::UMR::PDTV2PB::Transformation::SetAttr'->new(
+        {attr  => 'aspect',
+         value => $value})
+}
+
+sub polarity($, $value) {
+    'Treex::Tool::UMR::PDTV2PB::Transformation::SetAttr'->new(
+        {attr  => 'polarity',
+         value => $value})
+}
+
+sub tlemma($, $value) {
+    'Treex::Tool::UMR::PDTV2PB::Transformation::SetAttr'->new(
+        {attr  => 'concept',
+         value => $value})
+}
+
+sub relation($, $value) {
+    'Treex::Tool::UMR::PDTV2PB::Transformation::SetAttr'->new(
+        {attr  => 'functor',
+         value => $value})
+}
 
 sub modal_strength($, $value) {
     'Treex::Tool::UMR::PDTV2PB::Transformation::SetAttr'->new(

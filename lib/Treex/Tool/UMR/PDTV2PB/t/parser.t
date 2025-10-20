@@ -10,7 +10,7 @@ use Treex::Core::BundleZone;
 
 use Test::MockObject;
 use Test2::V0;
-plan(15);
+plan(19);
 
 my $p = 'Treex::Tool::UMR::PDTV2PB::Parser'->new;
 ok $p, 'Instantiates';
@@ -35,6 +35,42 @@ ok blessed($delete)
     $t->mock(id => sub { 't00' });
     like dies { $error->run($u, $t, undef) },
         qr{Valency transformation error: u00/t00}, 'Error';
+}
+
+{   my $setter = $p->parse('!polarity(-)');
+    my $u = 'Test::MockObject'->new;
+    $u->mock(set_polarity => sub { $_[0]{polarity} = $_[1] });
+    $setter->run($u, undef, undef);
+    is $u,
+        hash { field(polarity => '-'); end() },
+        'Setter';
+}
+
+{   my $setter = $p->parse('!functor(ARG1)');
+    my $u = 'Test::MockObject'->new;
+    $u->mock(set_functor => sub { $_[0]{functor} = $_[1] });
+    $setter->run($u, undef, undef);
+    is $u,
+        hash { field(functor => 'ARG1'); end() },
+        'Setter';
+}
+
+{   my $setter = $p->parse('!t_lemma(mít-042)');
+    my $u = 'Test::MockObject'->new;
+    $u->mock(set_concept => sub { $_[0]{concept} = $_[1] });
+    $setter->run($u, undef, undef);
+    is $u,
+        hash { field(concept => 'mít-042'); end() },
+        'Setter';
+}
+
+{   my $setter = $p->parse('!aspect(habitual)');
+    my $u = 'Test::MockObject'->new;
+    $u->mock(set_aspect => sub { $_[0]{aspect} = $_[1] });
+    $setter->run($u, undef, undef);
+    is $u,
+        hash { field(aspect => 'habitual'); end() },
+        'Setter';
 }
 
 {   my $setter = $p->parse('!modal-strength(neutral-negative)');

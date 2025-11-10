@@ -85,7 +85,7 @@ sub _build_dsl($) {
     Set_tlemma         ::= (tlemma lpar) Concept (rpar)      action => tlemma
     Set_relation       ::= (relation lpar) Relation (rpar)   action => relation
     Add                ::= (add lpar) node_target (dot) Set_tlemma (comma) Set_relation (rpar)
-    Move               ::= move (lpar) node_target (colon) functor (comma) Relation (rpar) action => [values]
+    Move               ::= (move lpar) node_target (colon) functor (comma) Relation (rpar) action => move
 
     :discard             ~ whitespace
     whitespace           ~ [\s]+
@@ -190,6 +190,14 @@ sub node_modal_strength($, $functor, $value) {
         {attr  => 'modal_strength',
          node  => $functor,
          value => $value})
+}
+
+sub move($, $target, $functor, $relation) {
+    'Treex::Tool::UMR::PDTV2PB::Transformation::Move'->new(
+        {target   => $target,
+         functor  => $functor,
+         relation => $relation}
+    )
 }
 
 sub If($, $if, $cond, $cmd, $else) {

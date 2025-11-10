@@ -71,6 +71,29 @@ sub run($self, $unode, $tnode, $block) {
     return @values
 }
 
+package Treex::Tool::UMR::PDTV2PB::Transformation::Move;
+use parent -norequire => 'Treex::Tool::UMR::PDTV2PB::Transformation';
+
+sub run($self, $unode, $tnode, $block) {
+    my @targets;
+    if ('esibling' eq $self->{target}) {
+        @targets = grep $_ != $tnode,
+                   map $_->get_echildren,
+                   $tnode->get_eparents;
+    } else {
+        die "$self->{target} no implemented for move!"
+    }
+    @targets = grep $_->functor eq $self->{functor}, @targets;
+    die scalar(@targets) . " targets for move!" if @targets != 1;
+
+    my @utargets = $targets[0]->get_referencing_nodes('t.rf');
+    die scalar(@utargets) . " umr targets for move!" if @utargets != 1;
+
+    $unode->set_parent($utargets[0]);
+    $unode->set_relation($self->{relation});
+    return
+}
+
 package Treex::Tool::UMR::PDTV2PB::Transformation::Error;
 use parent -norequire => 'Treex::Tool::UMR::PDTV2PB::Transformation';
 

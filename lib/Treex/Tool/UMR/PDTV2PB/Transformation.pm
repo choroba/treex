@@ -71,6 +71,17 @@ sub run($self, $unode, $tnode, $block) {
     return @values
 }
 
+package Treex::Tool::UMR::PDTV2PB::Transformation::Add;
+use parent -norequire => 'Treex::Tool::UMR::PDTV2PB::Transformation';
+
+sub run($self, $unode, $tnode, $block) {
+    die "$self->{target} not implemented" if 'echild' ne $self->{target};
+
+    my $uch = $unode->create_child;
+    $self->{$_}->run($uch, $tnode, $block) for qw( concept relation );
+    return
+}
+
 package Treex::Tool::UMR::PDTV2PB::Transformation::Move;
 use parent -norequire => 'Treex::Tool::UMR::PDTV2PB::Transformation';
 

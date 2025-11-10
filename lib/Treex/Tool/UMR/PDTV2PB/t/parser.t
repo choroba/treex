@@ -10,7 +10,7 @@ use Treex::Core::BundleZone;
 
 use Test::MockObject;
 use Test2::V0;
-plan(21);
+plan(23);
 
 my $p = 'Treex::Tool::UMR::PDTV2PB::Parser'->new;
 ok $p, 'Instantiates';
@@ -155,4 +155,17 @@ ok blessed($delete)
     $move->run($u, $t, undef);
     is $uparent, $us, 'move: parent';
     is $urel, 'possessor', 'move: relation';
+}
+
+{   my $add = $p->parse('!add(echild.t_lemma(concept),functor(ARG1))');
+    my $u = 'Test::MockObject'->new;
+    my ($ch, $relation, $concept);
+    $u->mock(create_child => sub {
+        $ch = 'Test::MockObject'->new;
+        $ch->mock(set_functor => sub { $relation = $_[1] });
+        $ch->mock(set_concept => sub { $concept  = $_[1] });
+    });
+    $add->run($u, undef, undef);
+    is $relation, 'ARG1', 'add relation';
+    is $concept, 'concept', 'add concept';
 }

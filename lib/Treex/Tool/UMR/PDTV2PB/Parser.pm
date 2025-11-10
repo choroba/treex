@@ -84,7 +84,7 @@ sub _build_dsl($) {
     Set_polarity       ::= (polarity lpar) dash (rpar)       action => polarity
     Set_tlemma         ::= (tlemma lpar) Concept (rpar)      action => tlemma
     Set_relation       ::= (relation lpar) Relation (rpar)   action => relation
-    Add                ::= (add lpar) node_target (dot) Set_tlemma (comma) Set_relation (rpar)
+    Add                ::= (add lpar) node_target (dot) Set_tlemma (comma) Set_relation (rpar) action => add
     Move               ::= (move lpar) node_target (colon) functor (comma) Relation (rpar) action => move
 
     :discard             ~ whitespace
@@ -190,6 +190,13 @@ sub node_modal_strength($, $functor, $value) {
         {attr  => 'modal_strength',
          node  => $functor,
          value => $value})
+}
+
+sub add($, $target, $tlemma, $relation) {
+    'Treex::Tool::UMR::PDTV2PB::Transformation::Add'->new(
+        {target => $target,
+         concept => $tlemma,
+         relation => $relation})
 }
 
 sub move($, $target, $functor, $relation) {

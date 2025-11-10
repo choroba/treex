@@ -36,6 +36,7 @@ sub process_unode($self, $unode, $) {
     }
 
     my $tnode = $unode->get_tnode;
+    return unless $tnode;
 
     # Frame transformations.
     if (blessed($unode->functor)
@@ -43,6 +44,7 @@ sub process_unode($self, $unode, $) {
     ) {
         my $value = $unode->functor->run($unode, $tnode, $self);
         return if 'DELETED' eq $value;
+        $unode->set_functor($value);
     } elsif (ref $unode->functor) {
         $unode->set_functor('!!UNIPMLEMENTED_RULE');
     }
@@ -169,12 +171,15 @@ sub translate_compl($self, $unode, $tnode) {
     my $relation = $self->sempos2relation($orig_tnode->parent);
     warn "COMPL ", $orig_tnode->parent->t_lemma // '?', ' ', $relation;
     $unode->set_functor($relation);
+    warn "ADJ: SET FUNCTOR compl $tnode->{id} $unode->{functor}";
+
 
     # COMPL as a common dependent.
     for my $u ($unode->root->descendants) {
         next if ($u->{'same_as.rf'} // "") ne $unode->id
              || ($u->functor // "") !~ /^(?:!!)?COMPL$/;
         $u->set_functor($self->sempos2relation($u->parent->get_tnode));
+        warn "ADJ: SET FUNCTOR compl2 $tnode->{id} $u->{functor}";
     }
 
     my (@u_targets) = map $_->get_referencing_nodes('t.rf'), @compl_targets;
@@ -355,6 +360,7 @@ sub adjust_coap($self, $unode, $tnode) {
             my $ref = $other_member->create_child;
             $ref->{ord} = 0;
             $ref->set_functor($ucommon->functor);
+            warn "ADJ: SET FUNCTOR ref $tnode->{id} $ref->{functor}";
             $ref->make_referential($self->_solve_ref($ucommon));
         }
     }
@@ -365,6 +371,7 @@ sub adjust_coap($self, $unode, $tnode) {
             my $ref2 = $member->create_child;
             $ref2->{ord} = 0;
             $ref2->set_functor($ref->functor);
+            warn "ADJ: SET FUNCTOR ref2 $tnode->{id} $ref->{functor}";
             $ref2->make_referential($self->_solve_ref($ref));
         }
     }

@@ -10,7 +10,7 @@ use Treex::Core::BundleZone;
 
 use Test::MockObject;
 use Test2::V0;
-plan(23);
+plan(25);
 
 my $p = 'Treex::Tool::UMR::PDTV2PB::Parser'->new;
 ok $p, 'Instantiates';
@@ -22,6 +22,12 @@ ok blessed($delete), 'Blessed object';
 ok blessed($delete)
     && $delete->isa('Treex::Tool::UMR::PDTV2PB::Transformation::Delete'),
     'Parses delete';
+
+my $delete = $p->parse('(!delete,ACT)');
+ok blessed($delete), 'Blessed object';
+ok blessed($delete)
+    && $delete->isa('Treex::Tool::UMR::PDTV2PB::Transformation::DeleteRoot'),
+    'Parses delete root';
 
 {   my $template = $p->parse('mít-CPHR-057');
     is $template->{template}->run(undef, undef, undef), 'mít-CPHR-057',

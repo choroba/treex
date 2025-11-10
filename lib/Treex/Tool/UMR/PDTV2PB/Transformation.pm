@@ -43,6 +43,26 @@ sub run($self, $unode, $tnode, $block) {
     die scalar @ch, " instead of 1 ${functor} for a template $template."
 }
 
+package Treex::Tool::UMR::PDTV2PB::Transformation::DeleteRoot;
+use parent -norequire => 'Treex::Tool::UMR::PDTV2PB::Transformation';
+
+sub run($self, $unode, $tnode, $block) {
+    $unode->{delete_root} = 1;
+}
+
+package Treex::Tool::UMR::PDTV2PB::Transformation::Root;
+use parent -norequire => 'Treex::Tool::UMR::PDTV2PB::Transformation';
+
+sub run($self, $unode, $tnode, $block) {
+    my @tps = $tnode->get_eparents;
+    for my $tp (@tps) {
+        my @us = $tp->get_referencing_nodes('t.rf');
+        die "Undeleted node $tp->{id}"
+            if grep ! $_->isa('Treex::Core::Node::Deleted'), @us;
+    }
+    return
+}
+
 package Treex::Tool::UMR::PDTV2PB::Transformation::Delete;
 use parent -norequire => 'Treex::Tool::UMR::PDTV2PB::Transformation';
 

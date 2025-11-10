@@ -101,7 +101,11 @@ sub translate_val_frame
         my $mapping = $self->mapping->{$valframe_id};
         if (my $pb_concept = $mapping->{umr_id}) {
             if ($mapping->{rule}) {
-                $self->apply_rule($unode, $tnode, $mapping);
+                my @values = grep defined,
+                             $self->apply_rule($unode, $tnode, $mapping);
+                die "More than 1 value $valframe_id" if @values > 1;
+
+                $unode->set_concept($values[0]) if @values;
             } else {
                 $unode->set_concept($pb_concept);
             }

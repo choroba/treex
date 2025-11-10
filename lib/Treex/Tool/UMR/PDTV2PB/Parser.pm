@@ -19,7 +19,7 @@ sub _build_dsl($) {
 
     lexeme default = latm => 1
 
-    :default           ::= action => [name,values]
+    :default           ::= action => default
     Rule               ::= Commands  action => ::first
     Commands           ::= Value                          action => ::first
                          | Value (MaybeComma) Commands    action => list
@@ -33,12 +33,12 @@ sub _build_dsl($) {
     Command            ::= (exclam) No_args                action => ::first
                          | (exclam) Args                   action => ::first
                          | If                              action => ::first
-                         | DeleteRoot
-    DeleteRoot         ::= (lpar) (exclam) delete (comma) functor (rpar)
+                         | DeleteRoot                      action => ::first
+    DeleteRoot         ::= (lpar exclam delete comma) functor (rpar) action => delete_root
     If                 ::= if (lpar) Conditions (rpar) (lpar) Commands (rpar) (else) Else  action => If
     Else               ::= (lpar) Commands (rpar)          action => ::first
-                         | If
-                         | (exclam) No_args
+                         | If                              action => ::first
+                         | (exclam) No_args                action => ::first
     Conditions         ::= NodelessConditions Conditions action => [values]
                          | Condition                     action => [values]
                          | Condition (comma) Conditions  action => append
@@ -67,10 +67,10 @@ sub _build_dsl($) {
                          | cprefix dash functor       action => concat
                          | cprefix dash functor dash  action => concat
                          | cprefix dash               action => concat
-    No_args            ::= delete  action => Delete
-                         | root    action => ::first
-                         | error   action => error
-                         | ok      action => ok
+    No_args            ::= (delete)  action => Delete
+                         | (root)    action => root
+                         | (error)   action => error
+                         | (ok)      action => ok
     Args               ::= Set_modal_strength  action => ::first
                          | Set_aspect          action => ::first
                          | Set_polarity        action => ::first
@@ -134,6 +134,9 @@ sub append($, $v, $l) { [@$l, $v] }
 sub empty($) { }
 sub list_def($, @l) { [grep defined, @l] }
 
+sub default($n, @v) {
+    'Treex::Tool::UMR::PDTV2PB::Transformation'->new({$n => \@v})
+}
 sub list($, @l) {
     'Treex::Tool::UMR::PDTV2PB::Transformation::List'->new({list => \@l})
 }
@@ -143,15 +146,24 @@ sub concept_template($obj, @values) {
         {template => concat($obj, map ref {} eq ref ? $_->{value} : $_, @values)})
 }
 
-sub Delete($obj, $) {
+sub root($) {
+    'Treex::Tool::UMR::PDTV2PB::Transformation::Root'->new
+}
+
+sub delete_root($func, $) {
+    'Treex::Tool::UMR::PDTV2PB::Transformation::DeleteRoot'->new(
+        {functor => $func})
+}
+
+sub Delete($) {
     'Treex::Tool::UMR::PDTV2PB::Transformation::Delete'->new
 }
 
-sub error($obj, $) {
+sub error($) {
     'Treex::Tool::UMR::PDTV2PB::Transformation::Error'->new
 }
 
-sub ok($, $) {
+sub ok($) {
     'Treex::Tool::UMR::PDTV2PB::Transformation::OK'->new
 }
 

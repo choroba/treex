@@ -10,7 +10,7 @@ use Treex::Core::BundleZone;
 
 use Test::MockObject;
 use Test2::V0;
-plan(19);
+plan(21);
 
 my $p = 'Treex::Tool::UMR::PDTV2PB::Parser'->new;
 ok $p, 'Instantiates';
@@ -136,4 +136,23 @@ ok blessed($delete)
     $ts->mock(functor => sub { 'ACT' });
     my $value2 = $cond->run(undef, $t, undef);
     is $value2, 'ARG2', 'esibling false';
+}
+
+{   my $move = $p->parse('!move(esibling:PAT,possessor)');
+    my ($u, $us, $tp, $t, $ts1, $ts2)
+        = map 'Test::MockObject'->new, 1 .. 6;
+    $t->mock(get_eparents => sub { $tp });
+    $tp->mock(get_echildren => sub { $t, $ts1, $ts2 });
+    $ts1->mock(functor => sub { 'PAT' });
+    $ts2->mock(functor => sub { 'ADDR' });
+    $ts1->mock(get_referencing_nodes => sub { $us });
+
+    my $uparent;
+    $u->mock(set_parent => sub { $uparent = $_[1] });
+    my $urel;
+    $u->mock(set_relation => sub { $urel = $_[1] });
+
+    $move->run($u, $t, undef);
+    is $uparent, $us, 'move: parent';
+    is $urel, 'possessor', 'move: relation';
 }

@@ -45,11 +45,33 @@ sub run($self, $unode, $tnode, $block) {
         " instead of 1 ${functor} at $tnode->{id} for a template $template."
 }
 
+package Treex::Tool::UMR::PDTV2PB::Transformation::DeleteRoot;
+use parent -norequire => 'Treex::Tool::UMR::PDTV2PB::Transformation';
+
+sub run($self, $unode, $tnode, $block) {
+    warn "Delete root $unode->{id}";
+    $unode->{delete_root} = 1;
+}
+
+package Treex::Tool::UMR::PDTV2PB::Transformation::Root;
+use parent -norequire => 'Treex::Tool::UMR::PDTV2PB::Transformation';
+
+sub run($self, $unode, $tnode, $block) {
+    warn "root $tnode->{id}";
+    my @tps = $tnode->get_eparents;
+    for my $tp (@tps) {
+        my @us = $tp->get_referencing_nodes('t.rf');
+        # die "Undeleted node $tp->{id}"
+        #     if grep ! $_->isa('Treex::Core::Node::Deleted'), @us;
+    }
+    return
+}
+
 package Treex::Tool::UMR::PDTV2PB::Transformation::Delete;
 use parent -norequire => 'Treex::Tool::UMR::PDTV2PB::Transformation';
 
 sub run($self, $unode, $tnode, $block) {
-    warn "DELETING";
+    warn "DELETING $unode->{id}";
     for my $ch ($unode->children) {
         $ch->set_parent($unode->parent);
     }
@@ -103,8 +125,7 @@ sub run($self, $unode, $tnode, $block) {
     die scalar(@utargets) . " umr targets for move!" if @utargets != 1;
 
     $unode->set_parent($utargets[0]);
-    $unode->set_relation($self->{relation});
-    return
+    return $self->{relation}
 }
 
 package Treex::Tool::UMR::PDTV2PB::Transformation::Error;
@@ -125,10 +146,22 @@ package Treex::Tool::UMR::PDTV2PB::Transformation::If;
 use parent -norequire => 'Treex::Tool::UMR::PDTV2PB::Transformation';
 
 sub run($self, $unode, $tnode, $block) {
+    use Data::Dumper; warn Dumper $self, $tnode->id;
+    my $tnode_orig = $tnode;
     for my $cond (@{ $self->{cond} }) {
-        return $self->{else}->run($unode, $tnode, $block)
-            unless $cond->run($unode, $tnode, $block);
+        my @nodes = $cond->run($unode, $tnode, $block);
+        # Several PAT_M under a CPHR.
+        warn "Condition: Too many nodes $tnode->{id}" if @nodes > 1;
+
+        return $self->{else}->run($unode, $tnode_orig, $block) unless @nodes;
+
+        warn("tnode changed to $nodes[0]{id}"),
+        $tnode = $nodes[0] if @nodes && $tnode == $tnode_orig
+                           && $nodes[0]->isa('Treex::Core::Node');
     }
+    warn "Restore tnode";
+    $tnode = $tnode_orig;
+    warn("Then $tnode->{id}");
     return $self->{then}->run($unode, $tnode, $block)
 }
 
@@ -136,9 +169,12 @@ package Treex::Tool::UMR::PDTV2PB::Transformation::Condition;
 use parent -norequire => 'Treex::Tool::UMR::PDTV2PB::Transformation';
 
 sub run($self, $unode, $tnode, $) {
+    use Data::Dumper; warn Dumper $self, $tnode->{id};
     my $attr = $self->{attr};
+    warn "ATTR:$attr ", $tnode->$attr;
     if (! defined $self->{node}) {
-        return grep $tnode->$attr eq $_, @{ $self->{values} }
+        warn "Same node ", grep $tnode->$attr eq $_, @{ $self->{values} };
+        return $tnode if grep $tnode->$attr eq $_, @{ $self->{values} }
     }
 
     if ('no-echild' eq $self->{node}) {
@@ -146,16 +182,18 @@ sub run($self, $unode, $tnode, $) {
             my $ch = $_;
             grep $ch->$attr eq  $_, @{ $self->{values} }
         } $tnode->get_echildren;
-        return ! @children
+        return @children ? () : $tnode
     }
 
     my @candidates;
     if ('echild' eq $self->{node}) {
         @candidates = $tnode->get_echildren;
+        use Data::Dumper; warn Dumper candidates => [map $_->id, @candidates];
     } elsif ('esibling' eq $self->{node}) {
         @candidates = grep $_ ne $tnode,
                       map $_->get_echildren,
                       $tnode->get_eparents;
+        use Data::Dumper; warn Dumper candidates => [map $_->id, @candidates];
     }
     return grep {
         my $c = $_;

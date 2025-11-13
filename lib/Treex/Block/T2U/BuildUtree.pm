@@ -24,7 +24,9 @@ sub process_zone
     $uroot->_normalize_node_ordering();
     for my $unode (reverse $uroot->descendants) {
         my $tnode = $unode->get_tnode;
-        $self->adjust_coap($unode, $tnode) if 'coap' eq $tnode->nodetype;
+        warn "no tnode $troot->{id} $unode->{concept}" unless $tnode;
+        $self->adjust_coap($unode, $tnode)
+            if $tnode && 'coap' eq $tnode->nodetype;
     }
     return 1;
 }
@@ -69,7 +71,7 @@ sub translate_val_frame
         if (my $valframe_id = $ep->val_frame_rf) {
             $valframe_id =~ s/^.*#//;
             if (my $pb = $self->mapping->{$valframe_id}{ $tnode->functor }) {
-                if (ref $pb) {
+                if (ref $pb && $pb != $rule) {
                     ++$functor{RULE};
                     $rule = $pb;
                 } else {
@@ -81,14 +83,16 @@ sub translate_val_frame
     }
     my $was_successful;
     if (($functor{RULE} // 0) > 1) {
-        die 'Too many rules';
+        die 'Too many rules ', $tnode->{id};
     }
     if (1 == keys %functor) {
         if (exists $functor{RULE}) {
             $unode->set_functor($rule);
+            warn "BU: SET FUNCTOR by rule $tnode->{id} $unode->{functor}";
             $was_successful = 1;
         } else {
             $unode->set_functor((keys %functor)[0]);
+            warn "BU: SET FUNCTOR by value $tnode->{id} $unode->{functor}";
             $was_successful = 1;
         }
     } else {
@@ -218,6 +222,7 @@ sub apply_rule
         my ($self, $tnode, $unode) = @_;
         $unode->set_functor($FUNCTOR_MAPPING{ $tnode->functor }
                             // ('!!' . $tnode->functor));
+        warn "BU: SET FUNCTOR non-v $tnode->{id} $unode->{functor}";
     }
 
     sub adjust_coap
@@ -241,6 +246,7 @@ sub apply_rule
         my $relation = $relations[0];
         $unode->set_concept($unode->functor);
         $unode->set_functor($relation // 'EMPTY');
+        warn "BU: SET FUNCTOR coap $tnode->{id} $unode->{functor}";
         my $prefix = $unode->concept =~ /-91/ ? 'ARG' : 'op';
 
         my @members = $tnode->get_coap_members({direct_only => 1});
@@ -384,6 +390,11 @@ sub negated_with_missing_gram {
             return 1
         if $self->is_morpho_negated($alex);
     return
+}
+
+sub safe_remove {
+    my ($self, $node) = @_;
+    warn "REMOVE LATER $node->{id}";
 }
 
 sub maybe_set { die 'Not implemented, language dependent!' }

@@ -41,9 +41,9 @@ sub _build_dsl($) {
                          | (exclam) No_args                action => ::first
     Conditions         ::= NodelessConditions Conditions action => [values]
                          | Condition                     action => [values]
-                         | Condition (comma) Conditions  action => append
+                         | Conditions (comma) Condition  action => append
     NodelessConditions ::= NodelessCondition             action => [values]
-                         | NodelessCondition (comma) NodelessConditions action => append
+                         | NodelessConditions (comma) NodelessCondition action => append
     NodelessCondition  ::= tlemma (colon) Lemmas   action => nodeless_condition
                          | fattr (colon) Functors  action => nodeless_condition
     Condition          ::= Maybe_node  NodelessCondition action => condition
@@ -52,11 +52,11 @@ sub _build_dsl($) {
     Maybe_node         ::= node (dot)  action => ::first
     Maybe_node         ::=             action => empty
     Lemmas             ::= Lemma                 action => [values]
-                         | Lemma (comma) Lemmas  action => append
+                         | Lemmas (comma) Lemma  action => append
     Lemma              ::= lemma         action => ::first
                          | upper1 lemma  action => concat
     Functors           ::= functor  action => [values],
-                         | functor (comma) Functors action => append
+                         | Functors (comma) functor action => append
     Relation           ::= arg arg_num  action => concat
                          | rel_val  action => ::first
     Concept            ::= Cprefixes Csuffix action => concept_template
@@ -130,12 +130,12 @@ sub _build_dsl($) {
 __DSL__
 }
 
-sub append($, $v, $l) { [@$l, $v] }
+sub append($, $v, $l) { [@$v, $l] }
 sub empty($) { }
 sub list_def($, @l) { [grep defined, @l] }
 
 sub default($n, @v) {
-    'Treex::Tool::UMR::PDTV2PB::Transformation'->new({$n => \@v})
+    'Treex::Tool::UMR::PDTV2PB::Transformation'->new({%$n, rest => \@v})
 }
 sub list($, @l) {
     'Treex::Tool::UMR::PDTV2PB::Transformation::List'->new({list => \@l})

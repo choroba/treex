@@ -17,17 +17,19 @@ ok $p, 'Instantiates';
 like ${ $p->dsl }, qr/ Rule \s+ ::= /x, 'Has a DSL';
 ok $p->grammar, 'Has a grammar';
 
-my $delete = $p->parse('!delete');
-ok blessed($delete), 'Blessed object';
-ok blessed($delete)
-    && $delete->isa('Treex::Tool::UMR::PDTV2PB::Transformation::Delete'),
-    'Parses delete';
+{   my $delete = $p->parse('!delete');
+    ok blessed($delete), 'Blessed object';
+    ok blessed($delete)
+        && $delete->isa('Treex::Tool::UMR::PDTV2PB::Transformation::Delete'),
+        'Parses delete';
+}
 
-my $delete = $p->parse('(!delete,ACT)');
-ok blessed($delete), 'Blessed object';
-ok blessed($delete)
-    && $delete->isa('Treex::Tool::UMR::PDTV2PB::Transformation::DeleteRoot'),
-    'Parses delete root';
+{   my $delete = $p->parse('(!delete,ACT)');
+    ok blessed($delete), 'Blessed object';
+    ok blessed($delete)
+        && $delete->isa('Treex::Tool::UMR::PDTV2PB::Transformation::DeleteRoot'),
+        'Parses delete root';
+}
 
 {   my $template = $p->parse('mít-CPHR-057');
     is $template->{template}->run(undef, undef, undef), 'mít-CPHR-057',

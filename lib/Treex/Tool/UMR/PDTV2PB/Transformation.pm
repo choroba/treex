@@ -40,7 +40,9 @@ sub run($self, $unode, $tnode, $block) {
         $unode->set_concept($template =~ s/$functor/$tlemma/r);
         return
     }
-    die scalar @ch, " instead of 1 ${functor} for a template $template."
+    # E.g. cmpr9413_031.t##29.2 "mají návrhů a připomínek více" TODO
+    die scalar @ch,
+        " instead of 1 ${functor} at $tnode->{id} for a template $template."
 }
 
 package Treex::Tool::UMR::PDTV2PB::Transformation::Delete;

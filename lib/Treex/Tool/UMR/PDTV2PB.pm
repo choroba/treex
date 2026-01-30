@@ -70,7 +70,7 @@ sub _build_mapping($self) {
     my $csv = 'Text::CSV_XS'->new({binary => 1, auto_diag => 1});
     my $current_id;
     while (my $row = $csv->getline($self->_csv)) {
-        next if 1 == $. || '1' eq $row->[15];
+        next if 1 == $. || '1' eq ($row->[15] // "");
 
         if ($row->[0]) {
             my ($verb, $frame_id) = $row->[1] =~ /(.*) \((.*)\)/;

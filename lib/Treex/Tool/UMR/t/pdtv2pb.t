@@ -38,7 +38,7 @@ my $v2uw = 'My::Consumer'->new(vallex => $vallex, csv => $pdt2pbw);
 like warnings {
     $v2uw->mapping;
 }, bag {
-    item qr{Ambiguous mapping absorbovat-001 v-w10f1 ACT: ARG2/ARG0};
+    item qr{Ambiguous mapping absorbovat-001 v-w10f1 ACT: ARG0/ARG2};
     item qr{Already exists v-w10f1};
     item qr{v-w11f1: cákat != běhat};
     end()

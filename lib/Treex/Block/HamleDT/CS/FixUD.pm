@@ -33,7 +33,16 @@ sub process_atree
     ###!!! Perhaps this should be fixed already when harmonizing the Prague
     ###!!! style (AtvV instead of Obj) but for now we do it here, it is simpler.
     $self->relabel_depictive_objects($root);
+    # Specific constructions, often small functional expressions, which are
+    # difficult to convert and/or likely to be inconsistent in the source.
+    # Some of them are caught in larger functions like fix_constructions(),
+    # others have dedicated functions of their own.
     $self->fix_constructions($root);
+    $self->fix_vice_nez($root);
+    # Normalize annotation of fixed expressions. In some cases it includes
+    # detection of the fixed expression, but in many others the function does
+    # something only if the 'fixed' relation is already in the data. Hence,
+    # if we need to detect trickier fixed expressions, we have to do it above.
     $self->fix_fixed_expressions($root);
     $self->fix_fixed_expressions_with_gaps($root);
     foreach my $node (@nodes)
@@ -707,7 +716,9 @@ sub fix_adverb_mark
 
 
 #------------------------------------------------------------------------------
-# Converts dependency relations from UD v1 to v2.
+# Detects specific constructions and tries to normalize their annotation. The
+# reason why it is needed may be inconsistence in the source data or difficulty
+# in converting such constructions to UD.
 #------------------------------------------------------------------------------
 sub fix_constructions
 {
@@ -850,29 +861,6 @@ sub fix_constructions
             $ze->set_parent($node);
             $ze->set_deprel('fixed');
             foreach my $child ($ze->children())
-            {
-                $child->set_parent($node);
-            }
-        }
-        # The expression "více než" ("more than") functions as an adverb.
-        elsif(lc($node->form()) eq 'než' && $parent->ord() == $node->ord()-1 &&
-              $node->lemma() =~ m/^(více|méně)$/)
-        {
-            $deprel = 'fixed';
-            $node->set_deprel($deprel);
-            $parent->set_deprel('advmod') unless($parent->parent()->is_root());
-        }
-        elsif($node->lemma() =~ m/^(více|méně)$/ && $parent->ord() == $node->ord()+1 &&
-              lc($parent->form()) eq 'než')
-        {
-            my $nez = $parent;
-            $parent = $nez->parent();
-            $deprel = $nez->deprel();
-            $node->set_parent($parent);
-            $node->set_deprel($deprel);
-            $nez->set_parent($node);
-            $nez->set_deprel('fixed');
-            foreach my $child ($nez->children)
             {
                 $child->set_parent($node);
             }
@@ -1304,6 +1292,48 @@ sub fix_constructions
         if($node->deprel() =~ m/^punct(:|$)/ && ($node->is_noun() || $node->is_foreign()))
         {
             $node->set_deprel('nmod');
+        }
+    }
+}
+
+
+
+#------------------------------------------------------------------------------
+# Detects the fixed expression "více než" (and similar). Not all collocations
+# of these two words should be treated as fixed expressions.
+#------------------------------------------------------------------------------
+sub fix_vice_nez
+{
+    my $self = shift;
+    my $root = shift;
+    my @nodes = $root->get_descendants({'ordered' => 1});
+    foreach my $node (@nodes)
+    {
+        next unless($node->lemma() =~ m/^(více?|méně|míň)$/);
+        my $vice = $node;
+        # Is it followed by "než" (immediately, not even with a comma between them)?
+        my $nez = $node->get_next_node();
+        next unless($nez && $nez->lemma() eq 'než');
+        # We found a "více než" collocation. Current relations between the nodes may vary.
+        # Option 1: "více" is parent of "než".
+        # We assume it should be a fixed expression and make sure the relation 'fixed' is used.
+        if($nez->parent() == $vice)
+        {
+            $nez->set_deprel('fixed');
+            $vice->set_deprel('advmod') unless($vice->is_root());
+        }
+        # Option 2: "více" is child of "než".
+        # We assume it should be a fixed expression but we must invert the relation.
+        elsif($vice->parent() == $nez)
+        {
+            $vice->set_parent($nez->parent());
+            $vice->set_deprel($nez->deprel());
+            $nez->set_parent($vice);
+            $nez->set_deprel('fixed');
+            foreach my $child ($nez->children())
+            {
+                $child->set_parent($vice);
+            }
         }
     }
 }

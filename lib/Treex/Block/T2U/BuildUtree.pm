@@ -83,6 +83,7 @@ sub translate_val_frame
     } else {
         log_warn("More than one functor: " . join ' ', keys %functor)
             if keys %functor > 1;
+        # Use mod for better UMR compatibility.
         $self->set_relation($unode, '!!' . $tnode->functor, $tnode);
     }
     if (my $valframe_id = $tnode->val_frame_rf) {
@@ -183,6 +184,7 @@ sub translate_val_frame
         my ($self, $tnode, $unode) = @_;
         $self->set_relation(
             $unode,
+            # Use !!mod for better UMR compatibility.
             $FUNCTOR_MAPPING{ $tnode->functor } // ('!!' . $tnode->functor),
             $tnode
         );

@@ -1310,6 +1310,7 @@ sub fix_vice_nez
     foreach my $node (@nodes)
     {
         next unless($node->lemma() =~ m/^(více?|méně|míň)$/);
+        next if($node->deprel() =~ m/^orphan(:|$)/);
         my $vice = $node;
         # Is it followed by "než" (immediately, not even with a comma between them)?
         my $nez = $node->get_next_node();
@@ -1333,6 +1334,54 @@ sub fix_vice_nez
             foreach my $child ($nez->children())
             {
                 $child->set_parent($vice);
+            }
+        }
+        # Option 3: "než" is grandchild of "více".
+        # "u více než dvaceti firem" ... obl(více, firem); mark(firem, než)
+        # Occasionally there is no numeral: "před více než rokem".
+        # Most of these should be fixed expressions. However, this (FicTree) not:
+        # "že mu to vynáší víc než doktorování"
+        # I do not see how we could distinguish them reliably. For now I add
+        # a requirement that there is a numeral, thus losing the abovementioned
+        # "před více než rokem", but hopefully excluding most of the occurrences
+        # that are normal comparisons.
+        ###!!! We do not catch "více než polovinu", as "polovinu" is tagged as noun.
+        ###!!! Similarly, if "sto", "tisíc", "milión" are tagged as nouns (it happens in some treebanks and contexts), we will not catch them.
+        ###!!! We also do not recognize "více než dostatečný", which is a similar construction but without numerals.
+        elsif($nez->parent()->parent() == $vice)
+        {
+            my $counted = $nez->parent();
+            my $numeral_present = $counted->is_cardinal() || any {$_->ord() > $nez->ord() && $_->ord() < $counted->ord() && $_->is_cardinal()} ($counted->children());
+            # If "counted" is verb, it could be e.g. (with missing comma): "nebudu platit víc než vydělávám".
+            if($numeral_present && !$counted->is_verb())
+            {
+                my $parent = $vice->parent();
+                my $deprel = $vice->deprel();
+                if($deprel =~ m/^(advmod|det)(:|$)/ && ($counted->is_noun() || $counted->is_numeral()))
+                {
+                    $deprel = 'obl';
+                }
+                if($deprel =~ m/^(obl|det)(:|$)/ && ($parent->is_noun() || $parent->is_numeral()))
+                {
+                    $deprel = 'nmod';
+                }
+                $counted->set_parent($parent);
+                $counted->set_deprel($deprel);
+                $vice->set_parent($counted);
+                $vice->set_deprel('advmod');
+                # Re-attach any other children of "více" (in particular prepositions)
+                # to the counted phrase.
+                foreach my $child ($vice->children())
+                {
+                    $child->set_parent($counted);
+                    if($child->deprel() =~ m/^obl(:|$)/ && ($counted->is_noun() || $counted->is_numeral()))
+                    {
+                        $child->set_deprel('nmod');
+                    }
+                }
+                # Complete the fixed expression.
+                $nez->set_parent($vice);
+                $nez->set_deprel('fixed');
             }
         }
     }

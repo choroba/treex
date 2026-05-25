@@ -1384,6 +1384,20 @@ sub fix_vice_nez
                 $nez->set_deprel('fixed');
             }
         }
+        # Option 4: "více" and "než" are siblings attached to the counted noun.
+        # This annotation is used for such constructions in FicTree (while other
+        # constructions involving "více než" are annotated differently there).
+        elsif($vice->parent() == $nez->parent())
+        {
+            my $counted = $nez->parent();
+            my $numeral_present = $counted->is_cardinal() || any {$_->ord() > $nez->ord() && $_->ord() < $counted->ord() && $_->is_cardinal()} ($counted->children());
+            if($numeral_present)
+            {
+                # We only need to re-attach "než", the rest should be already OK.
+                $nez->set_parent($vice);
+                $nez->set_deprel('fixed');
+            }
+        }
     }
 }
 
